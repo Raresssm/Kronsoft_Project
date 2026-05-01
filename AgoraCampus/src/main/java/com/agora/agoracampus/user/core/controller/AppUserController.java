@@ -1,0 +1,25 @@
+package com.agora.agoracampus.user.core.controller;
+
+import com.agora.agoracampus.user.core.dto.response.AppUserResponse;
+import com.agora.agoracampus.user.core.dto.request.CreateAppUserRequest;
+import com.agora.agoracampus.user.core.service.AppUserService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/users")
+public class AppUserController {
+
+    private final AppUserService appUserService;
+
+    public AppUserController(AppUserService appUserService) {
+        this.appUserService = appUserService;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public AppUserResponse createUser(@Valid @RequestBody CreateAppUserRequest request) {
+        return appUserService.createUser(request);
+    }
+}
