@@ -6,6 +6,7 @@ import com.agora.agoracampus.profile.background.dto.request.BackgroundUpdateRequ
 import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.profile.background.mapper.BackgroundMapper;
 import com.agora.agoracampus.profile.background.model.Background;
+import com.agora.agoracampus.profile.individual.dto.response.IndividualProfileResponse;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import com.agora.agoracampus.profile.background.repository.BackgroundRepository;
 import com.agora.agoracampus.profile.individual.repository.IndividualProfileRepository;
@@ -35,9 +36,6 @@ public class BackgroundService {
                 .map(backgroundMapper::toResponse)
                 .collect(Collectors.toList());
     }
-
-
-
         public BackgroundResponse getBackgroundById(Long id) {
             Background background =backgroundRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Background not found with id: " + id));

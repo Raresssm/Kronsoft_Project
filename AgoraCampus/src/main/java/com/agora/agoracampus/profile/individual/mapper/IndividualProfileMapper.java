@@ -8,6 +8,7 @@ import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import com.agora.agoracampus.profile.core.model.Profile;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 @Component
 
@@ -22,7 +23,13 @@ public class IndividualProfileMapper {
 
         public IndividualProfileResponse toResponse(IndividualProfile individualProfile) {
             return new IndividualProfileResponse(
-                    individualProfile.getId(),
+                    individualProfile.getProfile().getHeadline(),
+                    individualProfile.getProfile().getDescription(),
+                    individualProfile.getProfile().getLocation(),
+                    individualProfile.getProfile().getWebsite(),
+                    individualProfile.getProfile().getProfilePicture(),
+                    individualProfile.getProfile().getCoverImage(),
+                    individualProfile.getProfile().getUpdatedAt(),
                     individualProfile.getFirstName(),
                     individualProfile.getLastName(),
                     individualProfile.getPhone(),
@@ -38,6 +45,7 @@ public class IndividualProfileMapper {
 
         public IndividualProfile toEntity(IndividualProfileCreateRequest dto, Profile profile) {
             IndividualProfile individualProfile = new IndividualProfile();
+
             individualProfile.setProfile(profile);
             individualProfile.setFirstName(dto.firstName());
             individualProfile.setLastName(dto.lastName());
@@ -46,7 +54,15 @@ public class IndividualProfileMapper {
             return individualProfile;
         }
 
-        public void updateEntity(IndividualProfile individualProfile, IndividualProfileUpdateRequest dto) {
+        public void updateEntity(IndividualProfile individualProfile, IndividualProfileUpdateRequest dto, Profile profile) {
+
+            if (dto.website() != null) profile.setWebsite(dto.website());
+            if (dto.profilePicture() != null) profile.setProfilePicture(dto.profilePicture());
+            if(dto.coverImage()!=null) profile.setProfilePicture(dto.coverImage());
+            if(dto.headline()!=null) profile.setHeadline(dto.headline());
+            if(dto.location()!=null) profile.setLocation(dto.location());
+            if(dto.description()!=null) profile.setDescription(dto.description());
+
             if (dto.firstName() != null) individualProfile.setFirstName(dto.firstName());
             if (dto.lastName() != null) individualProfile.setLastName(dto.lastName());
             if (dto.phone() != null) individualProfile.setPhone(dto.phone());

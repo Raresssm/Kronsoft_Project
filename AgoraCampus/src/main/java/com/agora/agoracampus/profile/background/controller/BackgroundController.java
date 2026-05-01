@@ -29,14 +29,12 @@ public class BackgroundController {
 
     @GetMapping("/{backgroundId}")
     public ResponseEntity<BackgroundResponse> getById(
-            @PathVariable Long individualProfileId,
             @PathVariable Long backgroundId) {
         return ResponseEntity.ok(backgroundService.getBackgroundById( backgroundId));
     }
 
     @PostMapping
     public ResponseEntity<BackgroundResponse> create(
-            @PathVariable Long individualProfileId,
             @RequestBody @Valid BackgroundCreateRequest dto) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(backgroundService.createBackground( dto));
@@ -44,7 +42,6 @@ public class BackgroundController {
 
     @PutMapping("/{backgroundId}")
     public ResponseEntity<BackgroundResponse> update(
-            @PathVariable Long individualProfileId,
             @PathVariable Long backgroundId,
             @RequestBody @Valid BackgroundUpdateRequest dto) {
         return ResponseEntity.ok(backgroundService.updateBackground(backgroundId, dto));
@@ -52,7 +49,6 @@ public class BackgroundController {
 
     @DeleteMapping("/{backgroundId}")
     public ResponseEntity<Void> delete(
-            @PathVariable Long individualProfileId,
             @PathVariable Long backgroundId) {
         backgroundService.deleteBackground(backgroundId);
         return ResponseEntity.noContent().build();

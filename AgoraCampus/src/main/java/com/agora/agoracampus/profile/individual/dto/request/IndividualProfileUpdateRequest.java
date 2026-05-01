@@ -4,23 +4,42 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.hibernate.validator.constraints.URL;
 
 public record IndividualProfileUpdateRequest(@NotNull(message = "Profile id is required")
-                                        Long  profileId,
+                                             @Size(max = 255)
+                                             String headline,
 
-                                             @NotBlank(message = "First name is required")
-                                        @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
-                                        String firstName,
+                                             @Size(max = 500)
+                                             String description,
 
-                                             @NotBlank(message = "Last name is required")
-                                        @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
-                                        String lastName,
+                                             @Size(max = 255)
+                                             String location,
 
-                                             @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Phone number is not valid")
-                                        String phone,
+                                             @URL(message = "Website is not valid")
+                                             String website,
 
                                              @Size(max = 512)
-                                        String cvDocument) {
+                                             String profilePicture,
+
+                                             @Size(max = 512)
+                                             String coverImage,
+
+                                             // IndividualProfile
+                                             @Size(min = 2, max = 50)
+                                             String firstName,
+
+                                             @Size(min = 2, max = 50)
+                                             String lastName,
+
+                                             @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Phone number is not valid")
+                                             String phone,
+
+                                             @Size(max = 512)
+                                             String cvDocument)
+
+
+{
 
 }
 

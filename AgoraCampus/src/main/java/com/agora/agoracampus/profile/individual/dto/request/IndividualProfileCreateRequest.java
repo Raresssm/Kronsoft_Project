@@ -4,22 +4,47 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.hibernate.validator.constraints.URL;
 
-public record IndividualProfileCreateRequest(@NotNull(message = "Profile id is required")
-                                         Long profileId,
+public record IndividualProfileCreateRequest(
 
-                                             @NotBlank(message = "First name is required")
-                                          @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
-                                          String firstName,
+        @NotNull(message = "App user id is required")
+        Long appUserId,
 
-                                             @NotBlank(message = "Last name is required")
-                                          @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
-                                          String lastName,
 
-                                             @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Phone number is not valid")
-                                          String phone,
+        @NotBlank(message = "Headline is required")
+        @Size(max = 255, message = "Headline must be less than 255 characters")
+        String headline,
 
-                                             @Size(max = 512)
-                                          String cvDocument) {
+        @Size(max = 500)
+        String description,
 
-}
+        @Size(max = 255)
+        String location,
+
+        @URL(message = "Website is not valid")
+        String website,
+
+        @Size(max = 512)
+        String profilePicture,
+
+        @Size(max = 512)
+        String coverImage,
+
+        // IndividualProfile
+        @NotBlank(message = "First name is required")
+        @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
+        String firstName,
+
+        @NotBlank(message = "Last name is required")
+        @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
+        String lastName,
+
+        @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Phone number is not valid")
+        String phone,
+
+        @Size(max = 512)
+        String cvDocument)
+
+
+{ }

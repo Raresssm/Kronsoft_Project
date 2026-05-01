@@ -6,11 +6,18 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.util.List;
 
 public record IndividualProfileResponse(
 
-        Long individualProfileId,
+        String headline,
+        String description,
+        String location,
+        String website,
+        String profilePicture,
+        String coverImage,
+        Instant updatedAt,
         String firstName,
         String lastName,
         String phone,

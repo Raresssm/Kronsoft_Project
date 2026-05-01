@@ -10,9 +10,10 @@ public record CreateOrganizationProfileRequest(
         @NotNull(message = "App user id is required")
         Long appUserId,
 
+
         @NotBlank(message = "Headline is required")
         @Size(max = 255, message = "Headline must be less than 255 characters")
-        String headline, // era "header" - gresit
+        String headline,
 
         @Size(max = 500, message = "Description must be less than 500 characters")
         String description,

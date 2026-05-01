@@ -10,4 +10,9 @@ public interface OrganizationProfileRepository extends JpaRepository<Organizatio
     Optional<OrganizationProfile> findByProfile_Id(Long profileId);
     List<OrganizationProfile> findByOrganizationNameContainingIgnoreCase(String name);
 
+    List<OrganizationProfile>findByOrganizationLocationContainingIgnoreCase(String location);
+    List<OrganizationProfile>findByOrganizationIndustryContainingIgnoreCase(String industry);
+    List<OrganizationProfile>findByOrganizationSpecialtiesContainingIgnoreCase(String specialties);
+
+
 }

@@ -1,5 +1,8 @@
 package com.agora.agoracampus.profile.organization.service;
 
+import com.agora.agoracampus.profile.core.service.ProfileService;
+import com.agora.agoracampus.profile.individual.dto.response.IndividualProfileResponse;
+import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import com.agora.agoracampus.profile.organization.dto.request.CreateOrganizationProfileRequest;
 import com.agora.agoracampus.profile.organization.dto.request.OrganizationProfileUpdateRequest;
 import com.agora.agoracampus.profile.organization.dto.response.OrganizationProfileResponse;
@@ -10,6 +13,8 @@ import com.agora.agoracampus.profile.organization.model.OrganizationProfile;
 import com.agora.agoracampus.profile.core.model.Profile;
 import com.agora.agoracampus.profile.organization.repository.OrganizationProfileRepository;
 import com.agora.agoracampus.profile.core.repository.ProfileRepository;
+import com.agora.agoracampus.user.core.model.AppUser;
+import com.agora.agoracampus.user.core.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +27,8 @@ public class OrganizationProfileService {
     private final OrganizationProfileRepository organizationProfileRepository;
     private final ProfileRepository profileRepository;
     private final OrganizationProfileMapper organizationProfileMapper;
+    private final AppUserRepository appUserRepository;
+    private final ProfileService profileService;
 
 
     public OrganizationProfileResponse getByProfileId(Long profileId) {
@@ -31,7 +38,17 @@ public class OrganizationProfileService {
         return organizationProfileMapper.toResponse(org);
     }
 
+
     public List<OrganizationProfileResponse> searchByName(String name) {
+
+
+        List<OrganizationProfile> existing =
+                organizationProfileRepository.findByOrganizationNameContainingIgnoreCase(name);
+
+        if (existing.isEmpty()) {
+            throw new NotFoundException("Organization profile not found");
+        }
+
         return organizationProfileRepository
                 .findByOrganizationNameContainingIgnoreCase(name)
                 .stream()
@@ -39,34 +56,98 @@ public class OrganizationProfileService {
                 .collect(Collectors.toList());
     }
 
+    public List<OrganizationProfileResponse> searchByLocation(String location) {
 
-    public OrganizationProfileResponse create(CreateOrganizationProfileRequest dto) {
-        Profile profile = profileRepository.findByAppUser_Id(dto.appUserId())
-                .orElseThrow(() -> new NotFoundException("Profile not found for app user id: " + dto.appUserId()));
+        List<OrganizationProfile> existing =
+                organizationProfileRepository.findByOrganizationLocationContainingIgnoreCase(location);
 
-        if (profile.getOrganizationProfile() != null) {
-            throw new BadRequestException("Organization profile already exists for this profile");
+        if (existing.isEmpty()) {
+            throw new NotFoundException("Organization profile not found");
+        }
+        return organizationProfileRepository
+                .findByOrganizationLocationContainingIgnoreCase(location)
+                .stream()
+                .map(organizationProfileMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+    public List<OrganizationProfileResponse> searchByIndustry(String industry) {
+        List<OrganizationProfile> existing =
+                organizationProfileRepository.findByOrganizationIndustryContainingIgnoreCase(industry);
+
+        if (existing.isEmpty()) {
+            throw new NotFoundException("Organization profile not found");
         }
 
-        OrganizationProfile org = organizationProfileMapper.toEntity(dto, profile);
-        return organizationProfileMapper.toResponse(organizationProfileRepository.save(org));
+        return organizationProfileRepository
+                .findByOrganizationIndustryContainingIgnoreCase(industry)
+                .stream()
+                .map(organizationProfileMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+    public List<OrganizationProfileResponse> searchBySpecialties(String specialties) {
+
+        List<OrganizationProfile> existing =
+                organizationProfileRepository.findByOrganizationSpecialtiesContainingIgnoreCase(specialties);
+
+        if (existing.isEmpty()) {
+            throw new NotFoundException("Organization profile not found");
+        }
+        return organizationProfileRepository
+                .findByOrganizationLocationContainingIgnoreCase(specialties)
+                .stream()
+                .map(organizationProfileMapper::toResponse)
+                .collect(Collectors.toList());
+
     }
 
 
+    public OrganizationProfileResponse create(CreateOrganizationProfileRequest dto) {
+        AppUser appUser = appUserRepository.findById(dto.appUserId())
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        Profile profile = new Profile();
+        profile.setAppUser(appUser);
+        profile.setHeadline(dto.headline());
+        profile.setDescription(dto.description());
+        profile.setLocation(dto.location());
+        profile.setWebsite(dto.website());
+        Profile savedProfile = profileRepository.save(profile);
+
+
+        OrganizationProfile org = new OrganizationProfile();
+        org.setProfile(savedProfile);
+        org.setOrganizationName(dto.organizationName());
+        org.setPhone(dto.phone());
+        org.setIndustry(dto.industry());
+        org.setSpecialties(dto.specialties());
+        organizationProfileRepository.save(org);
+
+        return organizationProfileMapper.toResponse(org);
+    }
+
+
+
     public OrganizationProfileResponse update(Long profileId, OrganizationProfileUpdateRequest dto) {
+
         OrganizationProfile existing = organizationProfileRepository
                 .findByProfile_Id(profileId)
                 .orElseThrow(() -> new NotFoundException("Organization profile not found with profile id: " + profileId));
 
-        organizationProfileMapper.updateEntity(existing, dto);
+
+        Profile profile = existing.getProfile();
+        organizationProfileMapper.updateEntity(existing, dto,profile);
         return organizationProfileMapper.toResponse(organizationProfileRepository.save(existing));
     }
 
-    // DELETE
+
+
     public void delete(Long profileId) {
         OrganizationProfile existing = organizationProfileRepository
                 .findByProfile_Id(profileId)
                 .orElseThrow(() -> new NotFoundException("Organization profile not found with profile id: " + profileId));
-        organizationProfileRepository.delete(existing);
+
+        Profile profile =existing.getProfile();
+        profileService.deleteProfile(profile.getId());
+
     }
 }

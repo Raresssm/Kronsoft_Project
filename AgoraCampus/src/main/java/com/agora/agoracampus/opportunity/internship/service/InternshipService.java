@@ -1,6 +1,5 @@
 package com.agora.agoracampus.opportunity.internship.service;
 
-import com.agora.agoracampus.exception.InternshipNotFoundException;
 import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.opportunity.core.model.Opportunity;
 import com.agora.agoracampus.opportunity.core.repository.OpportunityRepository;
@@ -14,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +31,7 @@ public class InternshipService {
 
     public InternshipResponse findById(Long id) {
         Internship internship = internshipRepository.findById(id)
-                .orElseThrow(() -> new InternshipNotFoundException(id));
+                .orElseThrow(() -> new NotFoundException("Internship not found with the id:"+id));
         return internshipMapper.toResponse(internship);
     }
 
@@ -57,7 +55,7 @@ public class InternshipService {
 
     public InternshipResponse update(Long id, UpdateInternshipRequest request) {
         Internship existing = internshipRepository.findById(id)
-                .orElseThrow(() -> new InternshipNotFoundException(id));
+                .orElseThrow(() ->  new NotFoundException("Internship not found with the id:"+id));
         internshipMapper.updateEntity(existing, request);
         Internship updated = internshipRepository.save(existing);
         return internshipMapper.toResponse(updated);
@@ -65,7 +63,7 @@ public class InternshipService {
 
     public void deleteById(Long id) {
         if (!internshipRepository.existsById(id)) {
-            throw new InternshipNotFoundException(id);
+            throw   new NotFoundException("Internship not found with the id:"+id);
         }
         internshipRepository.deleteById(id);
     }

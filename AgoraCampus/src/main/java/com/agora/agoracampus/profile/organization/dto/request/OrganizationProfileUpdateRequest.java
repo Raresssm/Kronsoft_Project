@@ -4,6 +4,9 @@ package com.agora.agoracampus.profile.organization.dto.request;
 import jakarta.validation.constraints.*;
 
 public record OrganizationProfileUpdateRequest(
+
+        @NotNull(message = "Id  is required")
+        Long id,
         @Size(max = 255, message = "Headline must be less than 255 characters")
         String headline,
 

@@ -1,6 +1,5 @@
 package com.agora.agoracampus.opportunity.competition.service;
 
-import com.agora.agoracampus.exception.CompetitionNotFoundException;
 import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.opportunity.competition.dto.request.CreateCompetitionRequest;
 import com.agora.agoracampus.opportunity.competition.dto.request.UpdateCompetitionRequest;
@@ -33,7 +32,7 @@ public class CompetitionService {
 
     public CompetitionResponse findById(Long id) {
         Competition competition = competitionRepository.findById(id)
-                .orElseThrow(() -> new CompetitionNotFoundException(id));
+                .orElseThrow(() -> new NotFoundException("Competition not found with the id:"+id));
         return competitionMapper.toResponse(competition);
     }
 
@@ -64,7 +63,7 @@ public class CompetitionService {
 
     public CompetitionResponse update(Long id, UpdateCompetitionRequest request) {
         Competition existing = competitionRepository.findById(id)
-                .orElseThrow(() -> new CompetitionNotFoundException(id));
+                .orElseThrow(() -> new NotFoundException("Competition not found with the id:"+id));
         competitionMapper.updateEntity(existing, request);
         Competition updated = competitionRepository.save(existing);
         return competitionMapper.toResponse(updated);
@@ -72,7 +71,7 @@ public class CompetitionService {
 
     public void deleteById(Long id) {
         if (!competitionRepository.existsById(id)) {
-            throw new CompetitionNotFoundException(id);
+            new NotFoundException("Competition not found with the id:"+id);
         }
         competitionRepository.deleteById(id);
     }
