@@ -20,23 +20,26 @@ public class ConnectionController {
     private final ConnectionService connectionService;
 
     @GetMapping("/users/{userId}")
-    public List<ConnectionResponse> listForUser(@PathVariable Long userId) {
-        return connectionService.listForUser(userId);
+    public List<ConnectionResponse> listForUser(@PathVariable Long userId, @RequestParam Long actingUserId) {
+        return connectionService.listForUser(userId, actingUserId);
     }
 
     @GetMapping("/incoming/{receiverUserId}/pending")
-    public List<ConnectionResponse> listPendingIncoming(@PathVariable Long receiverUserId) {
-        return connectionService.listPendingIncoming(receiverUserId);
+    public List<ConnectionResponse> listPendingIncoming(@PathVariable Long receiverUserId, @RequestParam Long actingUserId) {
+        return connectionService.listPendingIncoming(receiverUserId, actingUserId);
     }
 
     @GetMapping("/{id}")
-    public ConnectionResponse getById(@PathVariable Long id) {
-        return connectionService.getById(id);
+    public ConnectionResponse getById(@PathVariable Long id, @RequestParam Long actingUserId) {
+        return connectionService.getById(id, actingUserId);
     }
 
     @PostMapping
-    public ResponseEntity<ConnectionResponse> create(@Valid @RequestBody CreateConnectionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(connectionService.create(request));
+    public ResponseEntity<ConnectionResponse> create(
+            @RequestParam Long actingUserId,
+            @Valid @RequestBody CreateConnectionRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(connectionService.create(actingUserId, request));
     }
 
     /**
