@@ -2,18 +2,17 @@ package com.agora.agoracampus.opportunity.core.service;
 
 import com.agora.agoracampus.opportunity.application.dto.request.CreateOpportunityApplicationRequest;
 import com.agora.agoracampus.opportunity.application.dto.response.OpportunityApplicationResponse;
+import com.agora.agoracampus.opportunity.application.mapper.OpportunityApplicationMapper;
 import com.agora.agoracampus.opportunity.application.model.ApplicationStatus;
 import com.agora.agoracampus.opportunity.application.model.OpportunityApplication;
 import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
 import com.agora.agoracampus.opportunity.core.dto.response.OpportunityResponse;
+import com.agora.agoracampus.opportunity.core.mapper.OpportunityMapper;
 import com.agora.agoracampus.opportunity.core.model.Opportunity;
 import com.agora.agoracampus.opportunity.core.model.OpportunityType;
-import com.agora.agoracampus.profile.core.dto.response.PostingProfileResponse;
-import com.agora.agoracampus.profile.core.model.ProfileType;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import com.agora.agoracampus.profile.organization.model.OrganizationProfile;
 import com.agora.agoracampus.opportunity.volunteering.dto.request.VolunteeringDetailsRequest;
-import com.agora.agoracampus.opportunity.volunteering.dto.response.VolunteeringResponse;
 import com.agora.agoracampus.opportunity.volunteering.mapper.VolunteeringMapper;
 import com.agora.agoracampus.opportunity.volunteering.model.Volunteering;
 import com.agora.agoracampus.user.core.model.AppUser;
@@ -40,6 +39,8 @@ public class OpportunityService {
     private final IndividualProfileRepository individualProfileRepository;
     private final OpportunityRepository opportunityRepository;
     private final OpportunityApplicationRepository opportunityApplicationRepository;
+    private final OpportunityMapper opportunityMapper;
+    private final OpportunityApplicationMapper opportunityApplicationMapper;
     private final VolunteeringMapper volunteeringMapper;
 
     public OpportunityService(
@@ -48,6 +49,8 @@ public class OpportunityService {
             IndividualProfileRepository individualProfileRepository,
             OpportunityRepository opportunityRepository,
             OpportunityApplicationRepository opportunityApplicationRepository,
+            OpportunityMapper opportunityMapper,
+            OpportunityApplicationMapper opportunityApplicationMapper,
             VolunteeringMapper volunteeringMapper
     ) {
         this.appUserService = appUserService;
@@ -55,6 +58,8 @@ public class OpportunityService {
         this.individualProfileRepository = individualProfileRepository;
         this.opportunityRepository = opportunityRepository;
         this.opportunityApplicationRepository = opportunityApplicationRepository;
+        this.opportunityMapper = opportunityMapper;
+        this.opportunityApplicationMapper = opportunityApplicationMapper;
         this.volunteeringMapper = volunteeringMapper;
     }
 
@@ -69,27 +74,19 @@ public class OpportunityService {
 
         validateOpportunityDetails(request.type(), request.volunteering());
 
-        Opportunity opportunity = new Opportunity();
-        opportunity.setPostedByUser(postedByUser);
-        opportunity.setOrganizationProfile(postingProfile.organizationProfile());
-        opportunity.setIndividualProfile(postingProfile.individualProfile());
-        opportunity.setType(request.type());
-        opportunity.setTitle(request.title());
-        opportunity.setLocation(request.location());
-        opportunity.setPeriod(request.period());
-        opportunity.setDescription(request.description());
-        opportunity.setAdditionalInfo(request.additionalInfo());
+        Opportunity opportunity = opportunityMapper.toEntity(
+                request,
+                postedByUser,
+                postingProfile.organizationProfile(),
+                postingProfile.individualProfile()
+        );
 
         if (request.volunteering() != null) {
-            Volunteering volunteering = new Volunteering();
-            volunteering.setCause(request.volunteering().cause());
-            volunteering.setSchedule(request.volunteering().schedule());
-            volunteering.setBenefits(request.volunteering().benefits());
-            volunteering.setOpportunity(opportunity);
+            Volunteering volunteering = volunteeringMapper.toEntity(request.volunteering(), opportunity);
             opportunity.setVolunteering(volunteering);
         }
 
-        return toResponse(opportunityRepository.save(opportunity));
+        return opportunityMapper.toResponse(opportunityRepository.save(opportunity));
     }
 
     @Transactional
@@ -109,7 +106,7 @@ public class OpportunityService {
         application.setApplicantUser(applicant);
         application.setStatus(ApplicationStatus.PENDING);
 
-        return toResponse(opportunityApplicationRepository.save(application));
+        return opportunityApplicationMapper.toResponse(opportunityApplicationRepository.save(application));
     }
 
     @Transactional
@@ -117,13 +114,13 @@ public class OpportunityService {
         getRequiredOpportunityEntity(opportunityId);
         return opportunityApplicationRepository.findByOpportunityIdOrderByAppliedAtDesc(opportunityId)
                 .stream()
-                .map(this::toResponse)
+                .map(opportunityApplicationMapper::toResponse)
                 .toList();
     }
 
     @Transactional
     public OpportunityResponse getOpportunity(Long opportunityId) {
-        return toResponse(getRequiredOpportunityEntity(opportunityId));
+        return opportunityMapper.toResponse(getRequiredOpportunityEntity(opportunityId));
     }
 
     @Transactional
@@ -145,7 +142,7 @@ public class OpportunityService {
 
         return opportunityRepository.findAll(specification, Sort.by(Sort.Direction.DESC, "createdAt"))
                 .stream()
-                .map(this::toResponse)
+                .map(opportunityMapper::toResponse)
                 .toList();
     }
 
@@ -193,61 +190,6 @@ public class OpportunityService {
                     "Volunteering details can only be provided when the opportunity type is VOLUNTEERING."
             );
         }
-    }
-
-    private OpportunityResponse toResponse(Opportunity opportunity) {
-        return new OpportunityResponse(
-                opportunity.getId(),
-                opportunity.getPostedByUser().getId(),
-                opportunity.getType(),
-                opportunity.getTitle(),
-                opportunity.getLocation(),
-                opportunity.getPeriod(),
-                opportunity.getDescription(),
-                opportunity.getAdditionalInfo(),
-                opportunity.getCreatedAt(),
-                toPostingProfileResponse(opportunity),
-                toVolunteeringResponse(opportunity.getVolunteering())
-        );
-    }
-
-    private PostingProfileResponse toPostingProfileResponse(Opportunity opportunity) {
-        if (opportunity.getOrganizationProfile() != null) {
-            OrganizationProfile organizationProfile = opportunity.getOrganizationProfile();
-            return new PostingProfileResponse(
-                    ProfileType.ORGANIZATION,
-                    (long)organizationProfile.getId(),
-                    null,
-                    (long)organizationProfile.getProfile().getId(),
-                    organizationProfile.getProfile().getAppUser().getId(),
-                    organizationProfile.getOrganizationName()
-            );
-        }
-
-        IndividualProfile individualProfile = opportunity.getIndividualProfile();
-        return new PostingProfileResponse(
-                ProfileType.INDIVIDUAL,
-                null,
-                (long)individualProfile.getId(),
-                (long)individualProfile.getProfile().getId(),
-                individualProfile.getProfile().getAppUser().getId(),
-                individualProfile.getFirstName() + " " + individualProfile.getLastName()
-        );
-    }
-
-    private VolunteeringResponse toVolunteeringResponse(Volunteering volunteering) {
-        return volunteeringMapper.toResponse(volunteering);
-    }
-
-    private OpportunityApplicationResponse toResponse(OpportunityApplication application) {
-        return new OpportunityApplicationResponse(
-                application.getId(),
-                application.getOpportunity().getId(),
-                application.getApplicantUser().getId(),
-                application.getApplicantUser().getUsername(),
-                application.getStatus(),
-                application.getAppliedAt()
-        );
     }
 
     private record PostingProfileSelection(
