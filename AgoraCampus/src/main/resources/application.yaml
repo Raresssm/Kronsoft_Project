@@ -3,9 +3,9 @@ spring:
     name: AgoraCampus
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/agora_campus
-    username: postgres
-    password: aricelul
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/agora_campus}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
