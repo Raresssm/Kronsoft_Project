@@ -4,17 +4,30 @@ import com.agora.agoracampus.profile.background.dto.request.BackgroundCreateRequ
 import com.agora.agoracampus.profile.background.dto.response.BackgroundResponse;
 import com.agora.agoracampus.profile.background.dto.request.BackgroundUpdateRequest;
 import com.agora.agoracampus.profile.background.model.Background;
+import com.agora.agoracampus.profile.background.model.BackgroundType;
+import com.agora.agoracampus.profile.core.model.Profile;
+import com.agora.agoracampus.profile.individual.dto.response.IndividualProfileResponse;
+import com.agora.agoracampus.profile.individual.mapper.IndividualProfileMapper;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
 
 @Component
 @RequiredArgsConstructor
 public class BackgroundMapper {
     public BackgroundResponse toResponse(Background background) {
+
+        IndividualProfile individual = background.getIndividualProfile();
+        Profile profile = individual.getProfile();
+
         return new BackgroundResponse(
-                background.getId(),
-                background.getIndividualProfile().getId(),
+
+                individual.getFirstName(),
+                individual.getLastName(),
+                profile.getHeadline(),
+                profile.getProfilePicture(),
                 background.getType(),
                 background.getTitle(),
                 background.getDescription(),
@@ -45,4 +58,3 @@ public class BackgroundMapper {
         if (dto.currentlyOngoing() != null) background.setCurrentlyOngoing(dto.currentlyOngoing());
     }
 }
-

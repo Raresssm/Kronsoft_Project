@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface BackgroundRepository extends JpaRepository<Background,Long> {
     List<Background> findByIndividualProfile_Id(Long individualProfileId);
+
 }

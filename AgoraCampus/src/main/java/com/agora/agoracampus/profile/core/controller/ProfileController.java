@@ -16,26 +16,28 @@ public class ProfileController {
 
         private final ProfileService profileService;
 
+    @GetMapping("/{profileId}")
+    public ResponseEntity<ProfileResponse> getProfileById(
+            @PathVariable Long profileId,
+            @RequestParam Long actingUserId) {
+        return ResponseEntity.ok(profileService.getProfileById(profileId, actingUserId));
+    }
 
-        @GetMapping("/{id}")
-        public ResponseEntity<ProfileResponse> getProfileById(@PathVariable Long id) {
-            return ResponseEntity.ok(profileService.getProfileById(id));
-        }
+    @PutMapping("/{profileId}")
+    public ResponseEntity<ProfileResponse> updateProfile(
+            @PathVariable Long profileId,
+            @RequestParam Long actingUserId,
+            @RequestBody @Valid ProfileUpdateRequest dto) {
+        return ResponseEntity.ok(profileService.updateProfile(profileId, actingUserId, dto));
+    }
 
-
-
-
-        @PutMapping("/{id}")
-        public ResponseEntity<ProfileResponse> updateProfile(@PathVariable Long id,
-                                                     @RequestBody  @Valid ProfileUpdateRequest dto) {
-            return ResponseEntity.ok(profileService.updateProfile(id, dto));
-        }
-
-        @DeleteMapping("{id}")
-    public ResponseEntity<Void> deleteProfile(@PathVariable Long id){
-            profileService.deleteProfile(id);
-            return ResponseEntity.noContent().build();
-        }
+    @DeleteMapping("/{profileId}")
+    public ResponseEntity<Void> deleteProfile(
+            @PathVariable Long profileId,
+            @RequestParam Long actingUserId) {
+        profileService.deleteProfile(profileId, actingUserId);
+        return ResponseEntity.noContent().build();
+    }
 
 
 

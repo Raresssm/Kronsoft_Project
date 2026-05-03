@@ -50,12 +50,12 @@ public class OrganizationProfileMapper {
     }
 
 
-    public void updateEntity(OrganizationProfile org, OrganizationProfileUpdateRequest dto, Profile profile) {
+    public void updateEntity(OrganizationProfile org, OrganizationProfileUpdateRequest dto) {
 
-
+   Profile profile=org.getProfile();
         if (dto.website() != null) profile.setWebsite(dto.website());
         if (dto.profilePicture() != null) profile.setProfilePicture(dto.profilePicture());
-        if(dto.coverImage()!=null) profile.setProfilePicture(dto.coverImage());
+        if(dto.coverImage()!=null) profile.setCoverImage(dto.coverImage());
         if(dto.headline()!=null) profile.setHeadline(dto.headline());
         if(dto.location()!=null) profile.setLocation(dto.location());
         if(dto.description()!=null) profile.setDescription(dto.description());

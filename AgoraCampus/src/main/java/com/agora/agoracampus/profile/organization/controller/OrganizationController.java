@@ -1,71 +1,76 @@
 package com.agora.agoracampus.profile.organization.controller;
 
+import com.agora.agoracampus.profile.core.service.ProfileService;
 import com.agora.agoracampus.profile.organization.dto.request.CreateOrganizationProfileRequest;
 import com.agora.agoracampus.profile.organization.dto.request.OrganizationProfileUpdateRequest;
 import com.agora.agoracampus.profile.organization.dto.response.OrganizationProfileResponse;
 import com.agora.agoracampus.profile.organization.service.OrganizationProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/profiles/")
+@RequestMapping("/api/organization")
 @RequiredArgsConstructor
 public class OrganizationController {
 
     private final OrganizationProfileService profileService;
 
 
-    @GetMapping("organization/{id}")
-    public ResponseEntity<OrganizationProfileResponse> getOrganizationProfile(@PathVariable Long id) {
-        return ResponseEntity.ok(profileService.getByProfileId(id));
+    @GetMapping("/{id}")
+    public ResponseEntity<OrganizationProfileResponse> getOrganizationProfile(
+            @PathVariable Long id,
+            @RequestParam Long actingUserId) {
+        return ResponseEntity.ok(profileService.getByProfileId(id, actingUserId));
     }
-    @PostMapping("organization")
+    @PostMapping
     public ResponseEntity<OrganizationProfileResponse> createOrganizationProfile(
-            @RequestBody  @Valid CreateOrganizationProfileRequest dto) {
-        return ResponseEntity.ok(profileService.create(dto));
+            @RequestBody @Valid CreateOrganizationProfileRequest dto,
+            @RequestParam Long actingUserId) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(profileService.create(actingUserId, dto));
     }
-    @GetMapping("organization/name/{name}")
+    @GetMapping("/name/{name}")
     public ResponseEntity<List<OrganizationProfileResponse>> searchOrganizationByName(
             @PathVariable String name) {
         return ResponseEntity.ok(profileService.searchByName(name));
     }
-    @GetMapping("organization/specialty/{specialties}")
+    @GetMapping("/specialty/{specialties}")
     public ResponseEntity<List<OrganizationProfileResponse>> searchOrganizationBySpecialties(
             @PathVariable String specialties) {
         return ResponseEntity.ok(profileService.searchBySpecialties(specialties));
     }
-    @GetMapping("organization/industry/{industry}")
+    @GetMapping("/industry/{industry}")
     public ResponseEntity<List<OrganizationProfileResponse>> searchOrganizationByIndustry(
             @PathVariable String industry) {
         return ResponseEntity.ok(profileService.searchByIndustry(industry));
     }
-    @GetMapping("organization/location/{location}")
+    @GetMapping("/location/{location}")
     public ResponseEntity<List<OrganizationProfileResponse>> searchOrganizationByLocation(
             @PathVariable String location) {
         return ResponseEntity.ok(profileService.searchByLocation(location));
     }
 
 
-    @PutMapping("organization/{id}")
+    @PutMapping("/{id}")
     public ResponseEntity<OrganizationProfileResponse> updateOrganizationProfile(
             @PathVariable Long id,
-            @RequestBody @Valid OrganizationProfileUpdateRequest dto
-    ) {
-        return ResponseEntity.ok(profileService.update(id, dto));
-
+            @RequestParam Long actingUserId,
+            @RequestBody @Valid OrganizationProfileUpdateRequest dto) {
+        return ResponseEntity.ok(profileService.update(id, actingUserId, dto));
     }
 
-    @DeleteMapping("organization/{id}")
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOrganizationProfile(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @RequestParam Long actingUserId) {
 
-        profileService.delete(id);
+     profileService.delete(id,actingUserId);
         return ResponseEntity.noContent().build();
     }
-
 
 }

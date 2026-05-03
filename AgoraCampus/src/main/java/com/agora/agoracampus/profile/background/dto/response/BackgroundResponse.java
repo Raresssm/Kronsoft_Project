@@ -10,13 +10,17 @@ import java.time.LocalDate;
 
 public record BackgroundResponse(
 
-        Long backgroundId,
-        Long individualProfileId,
-       BackgroundType type,
+        String firstName,
+        String lastName,
+
+
+        String headline,
+        String profilePicture,
+
+        BackgroundType type,
         String title,
         String description,
         LocalDate startDate,
         LocalDate endDate,
         Boolean currentlyOngoing
-
 ) {}

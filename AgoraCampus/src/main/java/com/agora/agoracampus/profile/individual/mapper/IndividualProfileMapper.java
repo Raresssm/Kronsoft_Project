@@ -1,5 +1,6 @@
 package com.agora.agoracampus.profile.individual.mapper;
 
+import com.agora.agoracampus.profile.core.dto.request.ProfileUpdateRequest;
 import com.agora.agoracampus.profile.individual.dto.request.IndividualProfileCreateRequest;
 import com.agora.agoracampus.profile.individual.dto.response.IndividualProfileResponse;
 import com.agora.agoracampus.profile.individual.dto.request.IndividualProfileUpdateRequest;
@@ -54,11 +55,13 @@ public class IndividualProfileMapper {
             return individualProfile;
         }
 
-        public void updateEntity(IndividualProfile individualProfile, IndividualProfileUpdateRequest dto, Profile profile) {
+        public void updateEntity(IndividualProfile individualProfile, IndividualProfileUpdateRequest dto) {
+            Profile profile =individualProfile.getProfile();
+
 
             if (dto.website() != null) profile.setWebsite(dto.website());
             if (dto.profilePicture() != null) profile.setProfilePicture(dto.profilePicture());
-            if(dto.coverImage()!=null) profile.setProfilePicture(dto.coverImage());
+            if(dto.coverImage()!=null) profile.setCoverImage(dto.coverImage());
             if(dto.headline()!=null) profile.setHeadline(dto.headline());
             if(dto.location()!=null) profile.setLocation(dto.location());
             if(dto.description()!=null) profile.setDescription(dto.description());
