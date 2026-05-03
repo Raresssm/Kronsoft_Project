@@ -159,6 +159,63 @@ class MessageServiceTest {
         assertTrue(message.isAcknowledged());
     }
 
+    @Test
+    void receiverCanMarkMessageRead() {
+        MessageService service = service();
+        AppUser sender = user(1L);
+        AppUser receiver = user(2L);
+        Message message = Message.builder()
+                .id(10L)
+                .sender(sender)
+                .receiver(receiver)
+                .content("hello")
+                .sentAt(Instant.now())
+                .acknowledged(false)
+                .build();
+
+        when(appUserRepository.existsById(2L)).thenReturn(true);
+        when(profileRepository.findByAppUser_Id(2L)).thenReturn(Optional.of(profile(receiver, ProfileType.INDIVIDUAL)));
+        when(messageRepository.findById(10L)).thenReturn(Optional.of(message));
+        when(messageRepository.save(message)).thenReturn(message);
+
+        service.markRead(10L, 2L);
+
+        assertTrue(message.isAcknowledged());
+    }
+
+    @Test
+    void outsiderCannotViewMessageById() {
+        MessageService service = service();
+        AppUser outsider = user(3L);
+        Message message = Message.builder()
+                .id(10L)
+                .sender(user(1L))
+                .receiver(user(2L))
+                .content("hello")
+                .sentAt(Instant.now())
+                .acknowledged(false)
+                .build();
+
+        when(appUserRepository.existsById(3L)).thenReturn(true);
+        when(profileRepository.findByAppUser_Id(3L)).thenReturn(Optional.of(profile(outsider, ProfileType.ORGANIZATION)));
+        when(messageRepository.findById(10L)).thenReturn(Optional.of(message));
+
+        assertThrows(BadRequestException.class, () -> service.getById(10L, 3L));
+    }
+
+    @Test
+    void authenticatedPrincipalMustMatchActingUserForNonAdmins() {
+        MessageService service = service();
+        TestingAuthenticationToken authentication = new TestingAuthenticationToken("keycloak-1", null);
+        authentication.setAuthenticated(true);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        when(appUserRepository.existsById(2L)).thenReturn(true);
+        when(appUserRepository.findByKeycloakId("keycloak-1")).thenReturn(Optional.of(user(1L)));
+
+        assertThrows(BadRequestException.class, () -> service.getUnreadIncoming(2L, 2L));
+    }
+
     private MessageService service() {
         return new MessageService(messageRepository, appUserRepository, profileRepository, messageMapper);
     }
