@@ -1,58 +1,68 @@
 package com.agora.agoracampus.opportunity.core.controller;
 
-import com.agora.agoracampus.opportunity.core.model.OpportunityType;
 import com.agora.agoracampus.opportunity.application.dto.request.CreateOpportunityApplicationRequest;
-import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
 import com.agora.agoracampus.opportunity.application.dto.response.OpportunityApplicationResponse;
+import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
 import com.agora.agoracampus.opportunity.core.dto.response.OpportunityResponse;
+import com.agora.agoracampus.opportunity.core.model.OpportunityType;
 import com.agora.agoracampus.opportunity.core.service.OpportunityService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/opportunities")
+@RequiredArgsConstructor
 public class OpportunityController {
 
     private final OpportunityService opportunityService;
 
-    public OpportunityController(OpportunityService opportunityService) {
-        this.opportunityService = opportunityService;
-    }
-
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public OpportunityResponse createOpportunity(@Valid @RequestBody CreateOpportunityRequest request) {
-        return opportunityService.createOpportunity(request);
+    public ResponseEntity<OpportunityResponse> createOpportunity(
+            @Valid @RequestBody CreateOpportunityRequest request,
+            @RequestParam Long actingUserId
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(opportunityService.createOpportunity(request, actingUserId));
     }
 
     @GetMapping
-    public List<OpportunityResponse> listOpportunities(
+    public ResponseEntity<List<OpportunityResponse>> listOpportunities(
             @RequestParam(required = false) OpportunityType type,
             @RequestParam(required = false) String location,
-            @RequestParam(required = false) Long postedByUserId
+            @RequestParam(required = false) Long postedByUserId,
+            @RequestParam Long actingUserId
     ) {
-        return opportunityService.listOpportunities(type, location, postedByUserId);
+        return ResponseEntity.ok(opportunityService.listOpportunities(type, location, postedByUserId, actingUserId));
     }
 
     @GetMapping("/{opportunityId}")
-    public OpportunityResponse getOpportunity(@PathVariable Long opportunityId) {
-        return opportunityService.getOpportunity(opportunityId);
+    public ResponseEntity<OpportunityResponse> getOpportunity(
+            @PathVariable Long opportunityId,
+            @RequestParam Long actingUserId
+    ) {
+        return ResponseEntity.ok(opportunityService.getOpportunity(opportunityId, actingUserId));
     }
 
     @PostMapping("/{opportunityId}/applications")
-    @ResponseStatus(HttpStatus.CREATED)
-    public OpportunityApplicationResponse applyToOpportunity(
+    public ResponseEntity<OpportunityApplicationResponse> applyToOpportunity(
             @PathVariable Long opportunityId,
-            @Valid @RequestBody CreateOpportunityApplicationRequest request
+            @Valid @RequestBody CreateOpportunityApplicationRequest request,
+            @RequestParam Long actingUserId
     ) {
-        return opportunityService.applyToOpportunity(opportunityId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(opportunityService.applyToOpportunity(opportunityId, request, actingUserId));
     }
 
     @GetMapping("/{opportunityId}/applications")
-    public List<OpportunityApplicationResponse> getApplications(@PathVariable Long opportunityId) {
-        return opportunityService.getApplications(opportunityId);
+    public ResponseEntity<List<OpportunityApplicationResponse>> getApplications(
+            @PathVariable Long opportunityId,
+            @RequestParam Long actingUserId
+    ) {
+        return ResponseEntity.ok(opportunityService.getApplications(opportunityId, actingUserId));
     }
 }
