@@ -75,10 +75,11 @@ class OpportunityEndpointTest {
 
     @Test
     void coreOpportunityEndpointsAreMapped() throws Exception {
-        when(opportunityService.listOpportunities(OpportunityType.INTERNSHIP, "Cluj", 1L)).thenReturn(List.of());
-        when(opportunityService.getApplications(10L)).thenReturn(List.of());
+        when(opportunityService.listOpportunities(OpportunityType.INTERNSHIP, "Cluj", 1L, 1L)).thenReturn(List.of());
+        when(opportunityService.getApplications(10L, 1L)).thenReturn(List.of());
 
         mockMvc.perform(post("/api/opportunities")
+                        .param("actingUserId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -95,10 +96,12 @@ class OpportunityEndpointTest {
         mockMvc.perform(get("/api/opportunities")
                         .param("type", "INTERNSHIP")
                         .param("location", "Cluj")
-                        .param("postedByUserId", "1"))
+                        .param("postedByUserId", "1")
+                        .param("actingUserId", "1"))
                 .andExpect(status().isOk());
-        mockMvc.perform(get("/api/opportunities/10")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/opportunities/10").param("actingUserId", "1")).andExpect(status().isOk());
         mockMvc.perform(post("/api/opportunities/10/applications")
+                        .param("actingUserId", "2")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -106,13 +109,14 @@ class OpportunityEndpointTest {
                                 }
                                 """))
                 .andExpect(status().isCreated());
-        mockMvc.perform(get("/api/opportunities/10/applications")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/opportunities/10/applications").param("actingUserId", "1"))
+                .andExpect(status().isOk());
 
-        verify(opportunityService).createOpportunity(any(CreateOpportunityRequest.class));
-        verify(opportunityService).listOpportunities(OpportunityType.INTERNSHIP, "Cluj", 1L);
-        verify(opportunityService).getOpportunity(10L);
-        verify(opportunityService).applyToOpportunity(eq(10L), any(CreateOpportunityApplicationRequest.class));
-        verify(opportunityService).getApplications(10L);
+        verify(opportunityService).createOpportunity(any(CreateOpportunityRequest.class), eq(1L));
+        verify(opportunityService).listOpportunities(OpportunityType.INTERNSHIP, "Cluj", 1L, 1L);
+        verify(opportunityService).getOpportunity(10L, 1L);
+        verify(opportunityService).applyToOpportunity(eq(10L), any(CreateOpportunityApplicationRequest.class), eq(2L));
+        verify(opportunityService).getApplications(10L, 1L);
     }
 
     @Test

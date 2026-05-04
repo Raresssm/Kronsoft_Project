@@ -20,7 +20,9 @@ import com.agora.agoracampus.profile.individual.repository.IndividualProfileRepo
 import com.agora.agoracampus.profile.organization.model.OrganizationProfile;
 import com.agora.agoracampus.profile.organization.repository.OrganizationProfileRepository;
 import com.agora.agoracampus.user.core.model.AppUser;
+import com.agora.agoracampus.user.core.repository.AppUserRepository;
 import com.agora.agoracampus.user.core.service.AppUserService;
+import com.agora.agoracampus.profile.core.repository.ProfileRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -43,6 +45,12 @@ class OpportunityServiceTest {
     private AppUserService appUserService;
 
     @Mock
+    private AppUserRepository appUserRepository;
+
+    @Mock
+    private ProfileRepository profileRepository;
+
+    @Mock
     private OrganizationProfileRepository organizationProfileRepository;
 
     @Mock
@@ -63,9 +71,13 @@ class OpportunityServiceTest {
         OpportunityService service = service();
         AppUser poster = user(1L);
 
+        allowOrganizationActor(poster);
         when(appUserService.getRequiredEntity(1L)).thenReturn(poster);
 
-        assertThrows(BadRequestException.class, () -> service.createOpportunity(opportunityRequest(null, null, OpportunityType.INTERNSHIP, null)));
+        assertThrows(
+                BadRequestException.class,
+                () -> service.createOpportunity(opportunityRequest(null, null, OpportunityType.INTERNSHIP, null), 1L)
+        );
         verify(opportunityRepository, never()).save(any(Opportunity.class));
     }
 
@@ -75,12 +87,13 @@ class OpportunityServiceTest {
         AppUser poster = user(1L);
         OrganizationProfile organizationProfile = organizationProfile(10L, user(2L));
 
+        allowOrganizationActor(poster);
         when(appUserService.getRequiredEntity(1L)).thenReturn(poster);
         when(organizationProfileRepository.findById(10L)).thenReturn(Optional.of(organizationProfile));
 
         assertThrows(
                 BadRequestException.class,
-                () -> service.createOpportunity(opportunityRequest(10L, null, OpportunityType.INTERNSHIP, null))
+                () -> service.createOpportunity(opportunityRequest(10L, null, OpportunityType.INTERNSHIP, null), 1L)
         );
         verify(opportunityRepository, never()).save(any(Opportunity.class));
     }
@@ -90,12 +103,13 @@ class OpportunityServiceTest {
         OpportunityService service = service();
         AppUser poster = user(1L);
 
+        allowOrganizationActor(poster);
         when(appUserService.getRequiredEntity(1L)).thenReturn(poster);
         when(organizationProfileRepository.findById(10L)).thenReturn(Optional.of(organizationProfile(10L, poster)));
 
         assertThrows(
                 BadRequestException.class,
-                () -> service.createOpportunity(opportunityRequest(10L, null, OpportunityType.VOLUNTEERING, null))
+                () -> service.createOpportunity(opportunityRequest(10L, null, OpportunityType.VOLUNTEERING, null), 1L)
         );
         verify(opportunityRepository, never()).save(any(Opportunity.class));
     }
@@ -106,12 +120,13 @@ class OpportunityServiceTest {
         AppUser poster = user(1L);
         VolunteeringDetailsRequest volunteering = new VolunteeringDetailsRequest("education", "weekends", "certificate");
 
+        allowOrganizationActor(poster);
         when(appUserService.getRequiredEntity(1L)).thenReturn(poster);
         when(organizationProfileRepository.findById(10L)).thenReturn(Optional.of(organizationProfile(10L, poster)));
 
         assertThrows(
                 BadRequestException.class,
-                () -> service.createOpportunity(opportunityRequest(10L, null, OpportunityType.INTERNSHIP, volunteering))
+                () -> service.createOpportunity(opportunityRequest(10L, null, OpportunityType.INTERNSHIP, volunteering), 1L)
         );
         verify(opportunityRepository, never()).save(any(Opportunity.class));
     }
@@ -122,12 +137,13 @@ class OpportunityServiceTest {
         AppUser poster = user(1L);
         Opportunity opportunity = opportunity(50L, poster);
 
+        allowOrganizationActor(poster);
         when(opportunityRepository.findById(50L)).thenReturn(Optional.of(opportunity));
         when(appUserService.getRequiredEntity(1L)).thenReturn(poster);
 
         assertThrows(
                 BadRequestException.class,
-                () -> service.applyToOpportunity(50L, new CreateOpportunityApplicationRequest(1L))
+                () -> service.applyToOpportunity(50L, new CreateOpportunityApplicationRequest(1L), 1L)
         );
         verify(opportunityApplicationRepository, never()).save(any(OpportunityApplication.class));
     }
@@ -137,13 +153,14 @@ class OpportunityServiceTest {
         OpportunityService service = service();
         AppUser applicant = user(2L);
 
+        allowOrganizationActor(applicant);
         when(opportunityRepository.findById(50L)).thenReturn(Optional.of(opportunity(50L, user(1L))));
         when(appUserService.getRequiredEntity(2L)).thenReturn(applicant);
         when(opportunityApplicationRepository.existsByOpportunityIdAndApplicantUserId(50L, 2L)).thenReturn(true);
 
         assertThrows(
                 ConflictException.class,
-                () -> service.applyToOpportunity(50L, new CreateOpportunityApplicationRequest(2L))
+                () -> service.applyToOpportunity(50L, new CreateOpportunityApplicationRequest(2L), 2L)
         );
         verify(opportunityApplicationRepository, never()).save(any(OpportunityApplication.class));
     }
@@ -154,12 +171,13 @@ class OpportunityServiceTest {
         AppUser applicant = user(2L);
         Opportunity opportunity = opportunity(50L, user(1L));
 
+        allowOrganizationActor(applicant);
         when(opportunityRepository.findById(50L)).thenReturn(Optional.of(opportunity));
         when(appUserService.getRequiredEntity(2L)).thenReturn(applicant);
         when(opportunityApplicationRepository.existsByOpportunityIdAndApplicantUserId(50L, 2L)).thenReturn(false);
         when(opportunityApplicationRepository.save(any(OpportunityApplication.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.applyToOpportunity(50L, new CreateOpportunityApplicationRequest(2L));
+        service.applyToOpportunity(50L, new CreateOpportunityApplicationRequest(2L), 2L);
 
         ArgumentCaptor<OpportunityApplication> applicationCaptor = ArgumentCaptor.forClass(OpportunityApplication.class);
         verify(opportunityApplicationRepository).save(applicationCaptor.capture());
@@ -170,6 +188,8 @@ class OpportunityServiceTest {
     private OpportunityService service() {
         return new OpportunityService(
                 appUserService,
+                appUserRepository,
+                profileRepository,
                 organizationProfileRepository,
                 individualProfileRepository,
                 opportunityRepository,
@@ -223,6 +243,7 @@ class OpportunityServiceTest {
         organizationProfile.setId(id);
         organizationProfile.setProfile(profile);
         organizationProfile.setOrganizationName("Org " + id);
+        profile.setOrganizationProfile(organizationProfile);
         return organizationProfile;
     }
 
@@ -233,5 +254,11 @@ class OpportunityServiceTest {
         user.setEmail("user" + id + "@example.com");
         user.setUsername("user" + id);
         return user;
+    }
+
+    private void allowOrganizationActor(AppUser user) {
+        OrganizationProfile organizationProfile = organizationProfile(10L, user);
+        when(appUserRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(profileRepository.findByAppUser_Id(user.getId())).thenReturn(Optional.of(organizationProfile.getProfile()));
     }
 }
