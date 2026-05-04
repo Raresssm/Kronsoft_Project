@@ -24,6 +24,8 @@ public class OrganizationProfileMapper {
    private final    ProfileMapper profileMapper;
     public OrganizationProfileResponse toResponse(OrganizationProfile org) {
         return new OrganizationProfileResponse(
+                org.getId(),
+                org.getProfile().getId(),
                 org.getProfile().getHeadline(),
                 org.getProfile().getDescription(),
                 org.getProfile().getLocation(),

@@ -14,8 +14,6 @@ import java.time.LocalDate;
 
 public record BackgroundUpdateRequest(
 
-        @NotNull(message = "Individual profile id is required")
-        Long individualProfileId,
 
         @NotNull(message = "Type is required")
         BackgroundType type,

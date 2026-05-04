@@ -5,6 +5,7 @@ import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.profile.core.mapper.ProfileMapper;
 import com.agora.agoracampus.profile.core.model.Profile;
 import com.agora.agoracampus.profile.core.model.ProfileActorRole;
+import com.agora.agoracampus.profile.core.model.ProfileType;
 import com.agora.agoracampus.profile.core.repository.ProfileRepository;
 import com.agora.agoracampus.profile.core.service.ProfileService;
 import com.agora.agoracampus.profile.individual.dto.request.IndividualProfileCreateRequest;
@@ -80,6 +81,7 @@ public class IndividualProfileService {
         profile.setDescription(dto.description());
         profile.setLocation(dto.location());
         profile.setWebsite(dto.website());
+        profile.setProfileType(ProfileType.INDIVIDUAL);
         Profile savedProfile = profileRepository.save(profile);
 
         IndividualProfile ind = new IndividualProfile();

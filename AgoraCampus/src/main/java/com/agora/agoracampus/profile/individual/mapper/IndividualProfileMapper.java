@@ -24,6 +24,8 @@ public class IndividualProfileMapper {
 
         public IndividualProfileResponse toResponse(IndividualProfile individualProfile) {
             return new IndividualProfileResponse(
+                    individualProfile.getId(),
+                    individualProfile.getProfile().getId(),
                     individualProfile.getProfile().getHeadline(),
                     individualProfile.getProfile().getDescription(),
                     individualProfile.getProfile().getLocation(),

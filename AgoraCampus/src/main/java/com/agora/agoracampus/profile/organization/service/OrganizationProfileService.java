@@ -4,6 +4,7 @@ import com.agora.agoracampus.exception.BadRequestException;
 import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.profile.core.model.Profile;
 import com.agora.agoracampus.profile.core.model.ProfileActorRole;
+import com.agora.agoracampus.profile.core.model.ProfileType;
 import com.agora.agoracampus.profile.core.repository.ProfileRepository;
 import com.agora.agoracampus.profile.core.service.ProfileService;
 import com.agora.agoracampus.profile.organization.dto.request.CreateOrganizationProfileRequest;
@@ -40,7 +41,7 @@ public class OrganizationProfileService {
     public OrganizationProfileResponse getByProfileId(Long profileId, Long actingUserId) {
         resolveActorRole(actingUserId);
         OrganizationProfile org = organizationProfileRepository
-                .findByProfile_Id(profileId)
+                .findById(profileId)
                 .orElseThrow(() -> new NotFoundException("Organization profile not found with profile id: " + profileId));
         return organizationProfileMapper.toResponse(org);
     }
@@ -62,6 +63,7 @@ public class OrganizationProfileService {
                 .map(organizationProfileMapper::toResponse)
                 .toList();
     }
+
 
     public List<OrganizationProfileResponse> searchByIndustry(String industry) {
         List<OrganizationProfile> existing = organizationProfileRepository
@@ -98,6 +100,7 @@ public class OrganizationProfileService {
         profile.setDescription(dto.description());
         profile.setLocation(dto.location());
         profile.setWebsite(dto.website());
+        profile.setProfileType(ProfileType.ORGANIZATION);
         profile.setProfilePicture(dto.profilePicture());
         profile.setCoverImage(dto.coverImage());
         Profile savedProfile = profileRepository.save(profile);

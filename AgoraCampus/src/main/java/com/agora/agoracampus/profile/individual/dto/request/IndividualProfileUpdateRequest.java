@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 import org.hibernate.validator.constraints.URL;
 
 public record IndividualProfileUpdateRequest(
-        @NotNull(message = "Profile id is required")
+
         @Size(max = 255)
         String headline,
 

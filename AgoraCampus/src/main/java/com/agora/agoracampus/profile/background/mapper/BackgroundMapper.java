@@ -23,7 +23,8 @@ public class BackgroundMapper {
         Profile profile = individual.getProfile();
 
         return new BackgroundResponse(
-
+                individual.getId(),
+                background.getId(),
                 individual.getFirstName(),
                 individual.getLastName(),
                 profile.getHeadline(),

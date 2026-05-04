@@ -11,6 +11,8 @@ import java.time.Instant;
 
 
 public record OrganizationProfileResponse(
+        Long id,
+        Long profileId,
         String headline,
         String description,
         String location,

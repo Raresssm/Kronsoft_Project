@@ -16,7 +16,7 @@ public interface OrganizationProfileRepository extends JpaRepository<Organizatio
             SELECT o FROM OrganizationProfile o
             WHERE LOWER(o.profile.location) LIKE LOWER(CONCAT('%', :location, '%'))
             """)
-    List<OrganizationProfile> findByLocationContainingIgnoreCase(@Param("location") String location);
+   List<OrganizationProfile> findByLocationContainingIgnoreCase(@Param("location") String location);
 
     List<OrganizationProfile> findByIndustryContainingIgnoreCase(String industry);
     List<OrganizationProfile> findBySpecialtiesContainingIgnoreCase(String specialties);

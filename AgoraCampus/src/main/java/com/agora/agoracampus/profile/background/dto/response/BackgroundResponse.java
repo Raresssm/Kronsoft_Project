@@ -10,6 +10,8 @@ import java.time.LocalDate;
 
 public record BackgroundResponse(
 
+        Long id,
+        Long profileId,
         String firstName,
         String lastName,
 

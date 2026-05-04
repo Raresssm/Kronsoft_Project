@@ -49,11 +49,13 @@ public class OrganizationController {
             @PathVariable String industry) {
         return ResponseEntity.ok(profileService.searchByIndustry(industry));
     }
+
     @GetMapping("/location/{location}")
     public ResponseEntity<List<OrganizationProfileResponse>> searchOrganizationByLocation(
             @PathVariable String location) {
         return ResponseEntity.ok(profileService.searchByLocation(location));
     }
+
 
 
     @PutMapping("/{id}")

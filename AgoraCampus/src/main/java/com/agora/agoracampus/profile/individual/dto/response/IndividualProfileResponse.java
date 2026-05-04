@@ -10,6 +10,9 @@ import java.time.Instant;
 import java.util.List;
 
 public record IndividualProfileResponse(
+        Long id,
+
+        Long profileId,
 
         String headline,
         String description,

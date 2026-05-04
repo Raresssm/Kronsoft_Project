@@ -71,4 +71,6 @@ public class IndividualController {
             @PathVariable String location) {
         return ResponseEntity.ok(individualProfileService.getProfileByLocation(location));
     }
+
+
 }
