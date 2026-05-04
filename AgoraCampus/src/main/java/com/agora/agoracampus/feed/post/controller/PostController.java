@@ -30,8 +30,11 @@ public class PostController {
     }
 
     @PostMapping
-    public ResponseEntity<PostResponse> create(@Valid @RequestBody CreatePostRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(postService.create(request));
+    public ResponseEntity<PostResponse> create(
+            @RequestParam Long actingUserId,
+            @Valid @RequestBody CreatePostRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(postService.create(actingUserId, request));
     }
 
     @PutMapping("/{id}")
