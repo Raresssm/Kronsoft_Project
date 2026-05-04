@@ -26,9 +26,10 @@ public class CommentController {
     @PostMapping
     public ResponseEntity<CommentResponse> create(
             @PathVariable Long postId,
+            @RequestParam Long actingUserId,
             @Valid @RequestBody CreateCommentRequest request
     ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(commentService.create(postId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(commentService.create(postId, actingUserId, request));
     }
 
     @DeleteMapping("/{commentId}")

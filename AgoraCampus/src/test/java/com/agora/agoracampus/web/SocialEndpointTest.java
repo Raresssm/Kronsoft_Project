@@ -180,6 +180,7 @@ class SocialEndpointTest {
         mockMvc.perform(get("/api/posts/users/1")).andExpect(status().isOk());
         mockMvc.perform(get("/api/posts/10")).andExpect(status().isOk());
         mockMvc.perform(post("/api/posts")
+                        .param("actingUserId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -202,6 +203,7 @@ class SocialEndpointTest {
 
         mockMvc.perform(get("/api/posts/10/comments")).andExpect(status().isOk());
         mockMvc.perform(post("/api/posts/10/comments")
+                        .param("actingUserId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -215,6 +217,7 @@ class SocialEndpointTest {
 
         mockMvc.perform(get("/api/posts/10/reactions")).andExpect(status().isOk());
         mockMvc.perform(put("/api/posts/10/reactions")
+                        .param("actingUserId", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -230,14 +233,14 @@ class SocialEndpointTest {
 
         verify(postService).listByAuthor(1L);
         verify(postService).getById(10L);
-        verify(postService).create(any(CreatePostRequest.class));
+        verify(postService).create(eq(1L), any(CreatePostRequest.class));
         verify(postService).update(eq(10L), eq(1L), any(UpdatePostRequest.class));
         verify(postService).delete(10L, 1L);
         verify(commentService).listByPost(10L);
-        verify(commentService).create(eq(10L), any(CreateCommentRequest.class));
+        verify(commentService).create(eq(10L), eq(1L), any(CreateCommentRequest.class));
         verify(commentService).delete(20L, 1L);
         verify(reactionService).listByPost(10L);
-        verify(reactionService).upsert(eq(10L), any(UpsertReactionRequest.class));
+        verify(reactionService).upsert(eq(10L), eq(1L), any(UpsertReactionRequest.class));
         verify(reactionService).remove(10L, 1L, 1L);
     }
 }

@@ -23,8 +23,12 @@ public class ReactionController {
     }
 
     @PutMapping
-    public ReactionResponse upsert(@PathVariable Long postId, @Valid @RequestBody UpsertReactionRequest request) {
-        return reactionService.upsert(postId, request);
+    public ReactionResponse upsert(
+            @PathVariable Long postId,
+            @RequestParam Long actingUserId,
+            @Valid @RequestBody UpsertReactionRequest request
+    ) {
+        return reactionService.upsert(postId, actingUserId, request);
     }
 
     @DeleteMapping

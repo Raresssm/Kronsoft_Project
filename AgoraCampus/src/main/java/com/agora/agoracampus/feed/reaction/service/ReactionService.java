@@ -2,12 +2,14 @@ package com.agora.agoracampus.feed.reaction.service;
 
 import com.agora.agoracampus.exception.BadRequestException;
 import com.agora.agoracampus.exception.NotFoundException;
+import com.agora.agoracampus.feed.model.FeedActorRole;
 import com.agora.agoracampus.feed.post.repository.PostRepository;
 import com.agora.agoracampus.feed.reaction.dto.request.UpsertReactionRequest;
 import com.agora.agoracampus.feed.reaction.dto.response.ReactionResponse;
 import com.agora.agoracampus.feed.reaction.mapper.ReactionMapper;
 import com.agora.agoracampus.feed.reaction.model.Reaction;
 import com.agora.agoracampus.feed.reaction.repository.ReactionRepository;
+import com.agora.agoracampus.feed.service.FeedPermissionService;
 import com.agora.agoracampus.user.core.repository.AppUserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class ReactionService {
     private final PostRepository postRepository;
     private final AppUserRepository appUserRepository;
     private final ReactionMapper reactionMapper;
+    private final FeedPermissionService feedPermissionService;
 
     public List<ReactionResponse> listByPost(Long postId) {
         if (!postRepository.existsById(postId)) {
@@ -34,7 +37,14 @@ public class ReactionService {
     }
 
     @Transactional
-    public ReactionResponse upsert(Long postId, UpsertReactionRequest request) {
+    public ReactionResponse upsert(Long postId, Long actingUserId, UpsertReactionRequest request) {
+        var actor = feedPermissionService.resolveActor(actingUserId);
+        feedPermissionService.requireUser(
+                actor,
+                actingUserId,
+                request.authorUserId(),
+                "Only individual or organization users can react as themselves."
+        );
         var post = postRepository.findById(postId).orElseThrow(() -> new NotFoundException("Post not found."));
         var author = appUserRepository.findById(request.authorUserId())
                 .orElseThrow(() -> new NotFoundException("User " + request.authorUserId() + " was not found."));
@@ -56,7 +66,8 @@ public class ReactionService {
 
     @Transactional
     public void remove(Long postId, Long authorUserId, Long actingUserId) {
-        if (!actingUserId.equals(authorUserId)) {
+        var actor = feedPermissionService.resolveActor(actingUserId);
+        if (actor.role() != FeedActorRole.ADMIN && !actingUserId.equals(authorUserId)) {
             throw new BadRequestException("Only the reaction author can remove their reaction.");
         }
         Reaction existing = reactionRepository.findByPost_IdAndAuthor_Id(postId, authorUserId)
