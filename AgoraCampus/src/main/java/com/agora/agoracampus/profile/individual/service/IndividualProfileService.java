@@ -1,6 +1,7 @@
 package com.agora.agoracampus.profile.individual.service;
 
 import com.agora.agoracampus.exception.BadRequestException;
+import com.agora.agoracampus.exception.ConflictException;
 import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.profile.core.mapper.ProfileMapper;
 import com.agora.agoracampus.profile.core.model.Profile;
@@ -74,6 +75,10 @@ public class IndividualProfileService {
 
         AppUser appUser = appUserRepository.findById(dto.appUserId())
                 .orElseThrow(() -> new NotFoundException("User not found"));
+
+        if (profileRepository.findByAppUser_Id(dto.appUserId()).isPresent()) {
+            throw new ConflictException("User already has a profile.");
+        }
 
         Profile profile = new Profile();
         profile.setAppUser(appUser);

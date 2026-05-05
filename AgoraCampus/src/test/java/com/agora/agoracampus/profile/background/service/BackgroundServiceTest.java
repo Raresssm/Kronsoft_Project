@@ -123,7 +123,6 @@ class BackgroundServiceTest {
 
     private BackgroundCreateRequest createRequest() {
         return new BackgroundCreateRequest(
-                10L,
                 BackgroundType.EDUCATION,
                 "School",
                 "Description",
@@ -135,7 +134,6 @@ class BackgroundServiceTest {
 
     private BackgroundUpdateRequest updateRequest(String title) {
         return new BackgroundUpdateRequest(
-                10L,
                 BackgroundType.WORK_EXPERIENCE,
                 title,
                 "Description",
