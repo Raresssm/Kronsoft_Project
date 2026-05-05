@@ -84,7 +84,7 @@ export default function Messages() {
   };
 
   return (
-    <div className="relative h-screen w-full bg-[white] overflowX-hidden flex flex-column">
+    <div className="relative h-screen w-full bg-[white] overflow-x-hidden flex flex-col">
       <Image src="/blur_cover.png" alt="profile" fill className="object-cover" />
 
       <div className="relative w-full h-[50px] bg-white/20 border border-white/20 shadow-2xl flex items-center px-4">
@@ -235,9 +235,9 @@ export default function Messages() {
         </div>
       </div>
 
-      <div className="w-[980px] h-[660px] absolute mt-[6%] ml-[10%] rounded-3xl bg-white border border-white/20 shadow-2xl backdrop-blur-xl overflow-hidden">
+      <div className="w-[1020px] h-[calc(100vh-120px)] min-h-[640px] max-h-[760px] absolute top-[calc(50%+25px)] -translate-y-1/2 left-[7%] rounded-3xl bg-white border border-white/20 shadow-2xl backdrop-blur-xl overflow-hidden">
         <div className="h-full flex">
-          <aside className="w-[310px] h-full bg-white/65 border-r border-white/50">
+          <aside className="w-[320px] h-full bg-gradient-to-b from-white/85 to-white/65 border-r border-white/60">
             <div className="p-5 border-b border-gray-200/70">
               <h2 className="text-[#143b5d] text-lg font-semibold tracking-wide">Messages</h2>
               <p className="text-xs text-gray-600 mt-1">Private conversations</p>

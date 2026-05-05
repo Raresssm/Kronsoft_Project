@@ -10,7 +10,7 @@ export default function Jobs() {
 
   return (
 
-   <div className="relative h-screen w-full bg-[white] overflowX-hidden flex flex-column">
+   <div className="relative h-screen w-full bg-[white] overflow-x-hidden flex flex-col">
   
       <Image
         src="/blur_cover.png"
@@ -190,7 +190,7 @@ export default function Jobs() {
 </div>
 
 </div>
-<div className="w-[700px] absolute mt-[10%] ml-[10%] rounded-3xl bg-white border border-white/20 shadow-2xl backdrop-blur-xl overflow-hidden">
+<div className="w-[760px] h-[calc(100vh-130px)] min-h-[620px] max-h-[760px] absolute top-[calc(50%+25px)] -translate-y-1/2 left-[7%] rounded-3xl bg-white border border-white/20 shadow-2xl backdrop-blur-xl overflow-hidden">
 
   <div className="w-full h-[200px] relative group">
 
