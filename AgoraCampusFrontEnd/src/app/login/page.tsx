@@ -95,7 +95,7 @@ export default function Login() {
             <button type="button" className="w-full py-4 rounded-xl bg-[#143b5d] hover:bg-[#1d5485] text-white text-xs font-bold tracking-[0.2em] transition-all active:scale-95 shadow-lg">
              
              
-              <Link href="individual_profile" className="hover:text-white transition-colors">
+              <Link href="profile" className="hover:text-white transition-colors">
        LOG IN
        </Link> 
             </button>

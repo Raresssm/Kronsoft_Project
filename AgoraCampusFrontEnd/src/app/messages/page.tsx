@@ -212,7 +212,7 @@ export default function Messages() {
               <span className="text-xs mt-1">Network</span>
             </div>
           </Link>
-          <Link href="/individual_profile">
+          <Link href="/profile">
             <div className="absolute left-200 top-1/2 -translate-y-1/2 cursor-pointer text-[#143b5d]">
               <svg
                 xmlns="http://www.w3.org/2000/svg"

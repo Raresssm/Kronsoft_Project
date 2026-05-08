@@ -167,7 +167,7 @@ export default function Network() {
   };
 
   return (
-    <div className="relative h-screen w-full bg-[white] overflow-x-hidden flex flex-col">
+    <div className="relative   overflow-hidden h-screen w-full bg-[white] overflow-x-hidden flex flex-col">
       <Image src="/blur_cover.png" alt="profile" fill sizes="100vw" className="object-cover" />
 
       <div className="relative w-full h-[50px] bg-white/20 border border-white/20 shadow-2xl flex items-center px-4">
@@ -295,7 +295,7 @@ export default function Network() {
               <span className="text-xs mt-1 font-semibold">Network</span>
             </div>
           </Link>
-          <Link href="/individual_profile">
+          <Link href="/profile">
             <div className="absolute left-200 top-1/2 -translate-y-1/2 cursor-pointer text-[#143b5d]">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -318,7 +318,7 @@ export default function Network() {
         </div>
       </div>
 
-      <div className="w-[1020px] h-[calc(100vh-120px)] min-h-[640px] max-h-[760px] absolute top-[calc(50%+25px)] -translate-y-1/2 left-[7%] rounded-3xl bg-white border border-white/20 shadow-2xl backdrop-blur-xl overflow-hidden">
+      <div className="w-[1020px] h-[calc(100vh-120px)] min-h-[640px] max-h-[760px] absolute top-[calc(50%+40px)] -translate-y-1/2 left-[7%] rounded-3xl bg-white border border-white/20 shadow-2xl backdrop-blur-xl overflow-hidden">
         <div className="h-full flex">
           <aside className="w-[320px] h-full bg-gradient-to-b from-white/85 to-white/65 border-r border-white/60">
             <div className="p-5 border-b border-gray-200/70">

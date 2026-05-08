@@ -160,7 +160,7 @@ export default function Feed() {
   <span className="text-xs mt-1">Network</span>
 </div>
 </Link>
-<Link href="/individual_profile">
+<Link href="/profile">
 <div className="absolute left-200 top-1/2 -translate-y-1/2 cursor-pointer text-[#143b5d]">
 
   <svg
@@ -189,52 +189,7 @@ export default function Feed() {
 </div>
 
 </div>
-<div className="w-[760px] h-[calc(100vh-130px)] min-h-[620px] max-h-[760px] absolute top-[calc(50%+25px)] -translate-y-1/2 left-[7%] rounded-3xl bg-white border border-white/20 shadow-2xl backdrop-blur-xl overflow-hidden">
 
-  <div className="w-full h-[200px] relative group">
-
-    <Image
-      src="/image.png"
-      alt="cover"
-      fill
-      className="object-cover"
-    />
-
-
-    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-      <span className="text-white text-sm">Upload Cover</span>
-    </div>
-
-      <input
-    type="file"
-    accept="image/*"
-    className="absolute inset-0 opacity-0 cursor-pointer"
-  />
-  </div>
-
-  <div className="absolute left-10 top-[140px] w-[120px] h-[120px]">
-
-    <div className="relative w-full h-full rounded-full border-4 border-white shadow-xl overflow-hidden bg-gray-600 group cursor-pointer">
-
-
-
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs">
-        Edit photo
-      </div>
-
-    </div>
-
-  
-    <input
-      type="file"
-      className="absolute inset-0 opacity-0 cursor-pointer rounded-full"
-    />
-
-  </div>
-
- 
-      
-        </div>
   
 </div>
 

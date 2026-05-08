@@ -116,9 +116,6 @@ export default function Jobs() {
     },
   ];
 
-  // CREATE options:
-  // - organization: 4 tipuri
-  // - individual: DOAR 2 tipuri (member search)
   const postTypes =
     accountType === "organization"
       ? ORG_POST_TYPES
@@ -127,11 +124,6 @@ export default function Jobs() {
           { type: "competition", label: "Caut membri (Competiție)" },
         ] satisfies { type: PostType; label: string }[]);
 
-  // FEED FILTERS:
-  // - organization: arată toate taburile, dar feed-ul e doar al lor
-  // - individual:
-  //    - postedByMe=yes => doar project/competition
-  //    - postedByMe=no  => toate (volunteer/internship/project/competition)
   const feedFilters = useMemo(() => {
     if (accountType === "organization") return ALL_FEED_FILTERS;
 
@@ -142,11 +134,7 @@ export default function Jobs() {
     return ALL_FEED_FILTERS;
   }, [accountType, postedByMe]);
 
-  // VISIBLE POSTS:
-  // - organization: numai ale organizației (ownerId = myOrgId)
-  // - individual:
-  //    - postedByMe=yes => numai postările user-ului (ownerId = myUserId) (și oricum sunt doar project/competition de obicei)
-  //    - postedByMe=no  => toate postările
+  
   const visiblePosts = useMemo(() => {
     if (accountType === "organization") return posts.filter((p) => p.ownerType === "organization" && p.ownerId === myOrgId);
 
@@ -265,7 +253,7 @@ export default function Jobs() {
             </div>
           </Link>
 
-          <Link href="/individual_profile">
+          <Link href="/profile">
             <div className="absolute left-200 top-1/2 -translate-y-1/2 cursor-pointer text-[#143b5d]">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#143b5d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
                 <circle cx="12" cy="12" r="10" />
