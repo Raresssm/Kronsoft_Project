@@ -28,6 +28,7 @@ export default function Login() {
 
    <div className="relative h-screen w-full bg-[#3c3834] overflow-hidden flex flex-row">
       
+      
      <div className="absolute inset-0 w-full h-full z-0">
   <Image
     src="/agora_campus.jpg"
@@ -83,9 +84,7 @@ export default function Login() {
             <div className="flex justify-between text-[11px] text-white/70 mb-8 font-light uppercase tracking-wider">
               <a href="#" className="hover:text-white transition-colors">Create Account</a>
               
-        <Link href="individual_profile" className="hover:text-white transition-colors">
-         Sign In?
-       </Link>
+       
               <a href="#" className="hover:text-white transition-colors">Forgot Password?</a>
             </div>
             {error && <p className="text-red-400 text-xs mb-4 text-center">{error}</p>}
@@ -93,8 +92,12 @@ export default function Login() {
 
 
 
-            <button type="submit" className="w-full py-4 rounded-xl bg-[#143b5d] hover:bg-[#1d5485] text-white text-xs font-bold tracking-[0.2em] transition-all active:scale-95 shadow-lg">
-              LOG IN
+            <button type="button" className="w-full py-4 rounded-xl bg-[#143b5d] hover:bg-[#1d5485] text-white text-xs font-bold tracking-[0.2em] transition-all active:scale-95 shadow-lg">
+             
+             
+              <Link href="individual_profile" className="hover:text-white transition-colors">
+       LOG IN
+       </Link> 
             </button>
           </form>
         </div>

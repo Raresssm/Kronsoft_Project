@@ -232,15 +232,8 @@ export default function Feed() {
 
   </div>
 
-  <div className="pt-[140px] p-6">
-  
-  </div>
-          <form >
-        
-     
-  
-           
-          </form>
+ 
+      
         </div>
   
 </div>
