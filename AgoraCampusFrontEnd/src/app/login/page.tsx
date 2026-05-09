@@ -26,16 +26,8 @@ export default function Login() {
         <div className="absolute inset-0 bg-black/40" />
       </div>
 
-      <div className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
-        <div className="hidden items-end pb-8 lg:flex">
-          <div className="max-w-md text-white">
-            <Image src="/logo.png" alt="Agora logo" width={120} height={120} />
-            <p className="mt-4 max-w-sm text-sm leading-6 text-white/80">
-              Sign in to your campus feed, messages, and network.
-            </p>
-          </div>
-        </div>
-
+      <div className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 ">
+{/*lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8*/}
         <div className="flex items-center justify-center">
           <LoginForm />
         </div>

@@ -27,6 +27,7 @@ export function CreateAccountForm() {
 
   return (
     <div className="w-full max-w-md rounded-[1.75rem] border border-white/20 bg-white/5 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+  
       <h1 className="text-center text-xl font-light tracking-[0.2em] text-white/90">
         CREATE ACCOUNT
       </h1>
@@ -91,7 +92,7 @@ export function CreateAccountForm() {
           <Link href="/login" className="transition hover:text-white">
             Sign In?
           </Link>
-          <a href="#" className="transition hover:text-white">
+          <a href="/forgotten" className="transition hover:text-white">
             Forgot Password?
           </a>
         </div>

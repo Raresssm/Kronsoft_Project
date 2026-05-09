@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
@@ -23,7 +23,10 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-[1.75rem] border border-white/20 bg-white/5 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+    <div className="w-full max-w-md mx-auto rounded-[1.75rem] border border-white/20 bg-white/5 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+          <div className="max-w-md flex flex-col items-center text-white animate-fadeIn">
+        <Image src="/logo.png" alt="Agora logo" width={90} height={90} />
+      </div>
       <h1 className="text-center text-xl font-light tracking-[0.2em] text-white/90">
         SIGN IN
       </h1>
@@ -67,7 +70,7 @@ export function LoginForm() {
           <Link href="/" className="transition hover:text-white">
             Create Account
           </Link>
-          <a href="#" className="transition hover:text-white">
+          <a href="/forgotten" className="transition hover:text-white">
             Forgot Password?
           </a>
         </div>

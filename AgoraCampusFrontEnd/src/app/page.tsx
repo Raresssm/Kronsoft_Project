@@ -18,6 +18,7 @@ const CreateAccountForm = dynamic(
 export default function Home() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#3c3834]">
+      
       <div className="absolute inset-0">
         <Image
           src="/agora_campus.jpg"
@@ -28,15 +29,16 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-black/20 to-black/50" />
       </div>
-
+  <h1>AGORA CAMPUS</h1>
       <div className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
         <div className="hidden items-end pb-8 lg:flex">
-          <div className="max-w-md text-white">
-            <Image src="/logo.png" alt="Agora logo" width={120} height={120} />
-            <p className="mt-4 max-w-sm text-sm leading-6 text-white/80">
-              Campus networking, feed, jobs, and messaging.
-            </p>
-          </div>
+          <div className="max-w-md flex flex-col items-center text-white animate-fadeIn">
+  <Image src="/logo.png" alt="Agora logo" width={90} height={90} />
+
+  <p className="mt-4 italic max-w-sm text-sm leading-6 text-white/80">
+    Where dialogue becomes opportunity.
+  </p>
+</div>
         </div>
 
         <div className="flex items-center justify-center">
