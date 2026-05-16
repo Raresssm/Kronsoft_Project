@@ -1,6 +1,9 @@
 package com.agora.agoracampus.opportunity.core.dto.request;
 
+import com.agora.agoracampus.opportunity.competition.dto.request.CompetitionDetailsRequest;
 import com.agora.agoracampus.opportunity.core.model.OpportunityType;
+import com.agora.agoracampus.opportunity.internship.dto.request.InternshipDetailsRequest;
+import com.agora.agoracampus.opportunity.studentproject.dto.request.StudentProjectDetailsRequest;
 import com.agora.agoracampus.opportunity.volunteering.dto.request.VolunteeringDetailsRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -17,6 +20,9 @@ public record CreateOpportunityRequest(
         @NotBlank @Size(max = 100) String period,
         @NotBlank String description,
         @Size(max = 1000) String additionalInfo,
-        @Valid VolunteeringDetailsRequest volunteering
+        @Valid VolunteeringDetailsRequest volunteering,
+        @Valid CompetitionDetailsRequest competition,
+        @Valid InternshipDetailsRequest internship,
+        @Valid StudentProjectDetailsRequest studentProject
 ) {
 }

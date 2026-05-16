@@ -1,9 +1,11 @@
 package com.agora.agoracampus.opportunity.core.mapper;
 
+import com.agora.agoracampus.opportunity.competition.mapper.CompetitionMapper;
 import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
 import com.agora.agoracampus.opportunity.core.dto.response.OpportunityResponse;
 import com.agora.agoracampus.opportunity.core.model.Opportunity;
-import com.agora.agoracampus.opportunity.volunteering.dto.response.VolunteeringResponse;
+import com.agora.agoracampus.opportunity.internship.mapper.InternshipMapper;
+import com.agora.agoracampus.opportunity.studentproject.mapper.StudentProjectMapper;
 import com.agora.agoracampus.opportunity.volunteering.mapper.VolunteeringMapper;
 import com.agora.agoracampus.profile.core.dto.response.PostingProfileResponse;
 import com.agora.agoracampus.profile.core.model.ProfileType;
@@ -18,6 +20,9 @@ import org.springframework.stereotype.Component;
 public class OpportunityMapper {
 
     private final VolunteeringMapper volunteeringMapper;
+    private final CompetitionMapper competitionMapper;
+    private final InternshipMapper internshipMapper;
+    private final StudentProjectMapper studentProjectMapper;
 
     public Opportunity toEntity(
             CreateOpportunityRequest request,
@@ -50,7 +55,10 @@ public class OpportunityMapper {
                 opportunity.getAdditionalInfo(),
                 opportunity.getCreatedAt(),
                 toPostingProfileResponse(opportunity),
-                toVolunteeringResponse(opportunity)
+                volunteeringMapper.toResponse(opportunity.getVolunteering()),
+                competitionMapper.toResponse(opportunity.getCompetition()),
+                internshipMapper.toResponse(opportunity.getInternship()),
+                studentProjectMapper.toResponse(opportunity.getStudentProject())
         );
     }
 
@@ -76,9 +84,5 @@ public class OpportunityMapper {
                 individualProfile.getProfile().getAppUser().getId(),
                 individualProfile.getFirstName() + " " + individualProfile.getLastName()
         );
-    }
-
-    private VolunteeringResponse toVolunteeringResponse(Opportunity opportunity) {
-        return volunteeringMapper.toResponse(opportunity.getVolunteering());
     }
 }

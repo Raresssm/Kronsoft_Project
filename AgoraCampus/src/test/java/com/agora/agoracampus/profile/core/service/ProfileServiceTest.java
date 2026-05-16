@@ -7,6 +7,8 @@ import com.agora.agoracampus.profile.core.model.Profile;
 import com.agora.agoracampus.profile.core.model.ProfileType;
 import com.agora.agoracampus.profile.core.repository.ProfileRepository;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
+import com.agora.agoracampus.profile.individual.repository.IndividualProfileRepository;
+import com.agora.agoracampus.profile.organization.repository.OrganizationProfileRepository;
 import com.agora.agoracampus.user.core.model.AppUser;
 import com.agora.agoracampus.user.core.repository.AppUserRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -34,6 +36,12 @@ class ProfileServiceTest {
 
     @Mock
     private AppUserRepository appUserRepository;
+
+    @Mock
+    private IndividualProfileRepository individualProfileRepository;
+
+    @Mock
+    private OrganizationProfileRepository organizationProfileRepository;
 
     private final ProfileMapper profileMapper = new ProfileMapper();
 
@@ -109,7 +117,13 @@ class ProfileServiceTest {
     }
 
     private ProfileService service() {
-        return new ProfileService(profileRepository, appUserRepository, profileMapper);
+        return new ProfileService(
+                profileRepository,
+                individualProfileRepository,
+                organizationProfileRepository,
+                appUserRepository,
+                profileMapper
+        );
     }
 
     private ProfileUpdateRequest updateRequest(String headline) {

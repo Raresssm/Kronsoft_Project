@@ -15,10 +15,15 @@ import com.agora.agoracampus.opportunity.core.mapper.OpportunityMapper;
 import com.agora.agoracampus.opportunity.core.model.Opportunity;
 import com.agora.agoracampus.opportunity.core.model.OpportunityActorRole;
 import com.agora.agoracampus.opportunity.core.model.OpportunityType;
+import com.agora.agoracampus.opportunity.competition.dto.request.CompetitionDetailsRequest;
+import com.agora.agoracampus.opportunity.competition.mapper.CompetitionMapper;
 import com.agora.agoracampus.opportunity.core.repository.OpportunityRepository;
+import com.agora.agoracampus.opportunity.internship.dto.request.InternshipDetailsRequest;
+import com.agora.agoracampus.opportunity.internship.mapper.InternshipMapper;
+import com.agora.agoracampus.opportunity.studentproject.dto.request.StudentProjectDetailsRequest;
+import com.agora.agoracampus.opportunity.studentproject.mapper.StudentProjectMapper;
 import com.agora.agoracampus.opportunity.volunteering.dto.request.VolunteeringDetailsRequest;
 import com.agora.agoracampus.opportunity.volunteering.mapper.VolunteeringMapper;
-import com.agora.agoracampus.opportunity.volunteering.model.Volunteering;
 import com.agora.agoracampus.profile.core.model.Profile;
 import com.agora.agoracampus.profile.core.repository.ProfileRepository;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
@@ -27,18 +32,16 @@ import com.agora.agoracampus.profile.organization.model.OrganizationProfile;
 import com.agora.agoracampus.profile.organization.repository.OrganizationProfileRepository;
 import com.agora.agoracampus.user.core.model.AppUser;
 import com.agora.agoracampus.user.core.repository.AppUserRepository;
+import com.agora.agoracampus.security.SecurityAuthorityUtils;
 import com.agora.agoracampus.user.core.service.AppUserService;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Locale;
 
 @Service
 public class OpportunityService {
@@ -53,6 +56,9 @@ public class OpportunityService {
     private final OpportunityMapper opportunityMapper;
     private final OpportunityApplicationMapper opportunityApplicationMapper;
     private final VolunteeringMapper volunteeringMapper;
+    private final CompetitionMapper competitionMapper;
+    private final InternshipMapper internshipMapper;
+    private final StudentProjectMapper studentProjectMapper;
 
     public OpportunityService(
             AppUserService appUserService,
@@ -64,7 +70,10 @@ public class OpportunityService {
             OpportunityApplicationRepository opportunityApplicationRepository,
             OpportunityMapper opportunityMapper,
             OpportunityApplicationMapper opportunityApplicationMapper,
-            VolunteeringMapper volunteeringMapper
+            VolunteeringMapper volunteeringMapper,
+            CompetitionMapper competitionMapper,
+            InternshipMapper internshipMapper,
+            StudentProjectMapper studentProjectMapper
     ) {
         this.appUserService = appUserService;
         this.appUserRepository = appUserRepository;
@@ -76,6 +85,9 @@ public class OpportunityService {
         this.opportunityMapper = opportunityMapper;
         this.opportunityApplicationMapper = opportunityApplicationMapper;
         this.volunteeringMapper = volunteeringMapper;
+        this.competitionMapper = competitionMapper;
+        this.internshipMapper = internshipMapper;
+        this.studentProjectMapper = studentProjectMapper;
     }
 
     // ── CREATE ────────────────────────────────────────────────────────────────
@@ -96,7 +108,7 @@ public class OpportunityService {
                 request.individualProfileId()
         );
 
-        validateOpportunityDetails(request.type(), request.volunteering());
+        validateOpportunityDetails(request);
 
         Opportunity opportunity = opportunityMapper.toEntity(
                 request,
@@ -105,10 +117,7 @@ public class OpportunityService {
                 postingProfile.individualProfile()
         );
 
-        if (request.volunteering() != null) {
-            Volunteering volunteering = volunteeringMapper.toEntity(request.volunteering(), opportunity);
-            opportunity.setVolunteering(volunteering);
-        }
+        attachSubtypeDetails(request, opportunity);
 
         return opportunityMapper.toResponse(opportunityRepository.save(opportunity));
     }
@@ -153,12 +162,7 @@ public class OpportunityService {
         Opportunity opportunity = getRequiredOpportunityEntity(opportunityId);
 
         // OWNER (cel care a postat) sau ADMIN pot vedea aplicatiile
-        requireAdminOrOwner(
-                actorRole,
-                actingUserId,
-                opportunity.getPostedByUser().getId(),
-                "Only the opportunity owner or admins can view applications."
-        );
+        requireAdminOrOwner(actorRole, actingUserId, opportunity.getPostedByUser().getId());
 
         return opportunityApplicationRepository.findByOpportunityIdOrderByAppliedAtDesc(opportunityId)
                 .stream()
@@ -201,8 +205,8 @@ public class OpportunityService {
 
     // ── PRIVATE ───────────────────────────────────────────────────────────────
 
-    private AppUser validateUserExists(Long userId) {
-        return appUserRepository.findById(userId)
+    private void validateUserExists(Long userId) {
+        appUserRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User " + userId + " was not found."));
     }
 
@@ -210,8 +214,8 @@ public class OpportunityService {
         validateUserExists(actingUserId);
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean authenticated = isAuthenticated(authentication);
-        boolean isAdmin = authenticated && hasAdminAuthority(authentication);
+        boolean authenticated = SecurityAuthorityUtils.isAuthenticated(authentication);
+        boolean isAdmin = authenticated && SecurityAuthorityUtils.hasAdminAuthority(authentication);
 
         if (authenticated) {
             validateAuthenticatedIdentity(actingUserId, isAdmin, authentication);
@@ -239,28 +243,11 @@ public class OpportunityService {
     private void requireAdminOrOwner(
             OpportunityActorRole actorRole,
             Long actingUserId,
-            Long ownerId,
-            String message
+            Long ownerId
     ) {
         if (actorRole == OpportunityActorRole.INDIVIDUAL && !actingUserId.equals(ownerId)) {
-            throw new BadRequestException(message);
+            throw new BadRequestException("Only the opportunity owner or admins can view applications.");
         }
-    }
-
-    private boolean isAuthenticated(Authentication authentication) {
-        return authentication != null
-                && authentication.isAuthenticated()
-                && !(authentication instanceof AnonymousAuthenticationToken);
-    }
-
-    private boolean hasAdminAuthority(Authentication authentication) {
-        for (GrantedAuthority authority : authentication.getAuthorities()) {
-            String normalizedAuthority = authority.getAuthority().toUpperCase(Locale.ROOT);
-            if ("ROLE_ADMIN".equals(normalizedAuthority) || "ADMIN".equals(normalizedAuthority)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void validateAuthenticatedIdentity(
@@ -318,14 +305,78 @@ public class OpportunityService {
         return new PostingProfileSelection(null, individualProfile);
     }
 
-    private void validateOpportunityDetails(OpportunityType type, VolunteeringDetailsRequest volunteeringDetails) {
-        if (type == OpportunityType.VOLUNTEERING && volunteeringDetails == null) {
+    private void attachSubtypeDetails(CreateOpportunityRequest request, Opportunity opportunity) {
+        switch (request.type()) {
+            case VOLUNTEERING -> opportunity.setVolunteering(
+                    volunteeringMapper.toEntity(requireVolunteeringDetails(request), opportunity));
+            case COMPETITION -> opportunity.setCompetition(
+                    competitionMapper.toEntity(requireCompetitionDetails(request), opportunity));
+            case INTERNSHIP -> opportunity.setInternship(
+                    internshipMapper.toEntity(requireInternshipDetails(request), opportunity));
+            case STUDENT_PROJECT -> opportunity.setStudentProject(
+                    studentProjectMapper.toEntity(requireStudentProjectDetails(request), opportunity));
+        }
+    }
+
+    private void validateOpportunityDetails(CreateOpportunityRequest request) {
+        switch (request.type()) {
+            case VOLUNTEERING -> {
+                requireVolunteeringDetails(request);
+                if (request.competition() != null || request.internship() != null || request.studentProject() != null) {
+                    throw new BadRequestException(
+                            "Only volunteering details may be provided for VOLUNTEERING opportunities.");
+                }
+            }
+            case COMPETITION -> {
+                requireCompetitionDetails(request);
+                if (request.volunteering() != null || request.internship() != null || request.studentProject() != null) {
+                    throw new BadRequestException(
+                            "Only competition details may be provided for COMPETITION opportunities.");
+                }
+            }
+            case INTERNSHIP -> {
+                requireInternshipDetails(request);
+                if (request.volunteering() != null || request.competition() != null || request.studentProject() != null) {
+                    throw new BadRequestException(
+                            "Only internship details may be provided for INTERNSHIP opportunities.");
+                }
+            }
+            case STUDENT_PROJECT -> {
+                requireStudentProjectDetails(request);
+                if (request.volunteering() != null || request.competition() != null || request.internship() != null) {
+                    throw new BadRequestException(
+                            "Only student project details may be provided for STUDENT_PROJECT opportunities.");
+                }
+            }
+        }
+    }
+
+    private VolunteeringDetailsRequest requireVolunteeringDetails(CreateOpportunityRequest request) {
+        if (request.volunteering() == null) {
             throw new BadRequestException("Volunteering opportunities require volunteering details.");
         }
-        if (type != OpportunityType.VOLUNTEERING && volunteeringDetails != null) {
-            throw new BadRequestException(
-                    "Volunteering details can only be provided when the opportunity type is VOLUNTEERING.");
+        return request.volunteering();
+    }
+
+    private CompetitionDetailsRequest requireCompetitionDetails(CreateOpportunityRequest request) {
+        if (request.competition() == null) {
+            throw new BadRequestException("Competition opportunities require competition details.");
         }
+        return request.competition();
+    }
+
+    private InternshipDetailsRequest requireInternshipDetails(CreateOpportunityRequest request) {
+        if (request.internship() == null) {
+            throw new BadRequestException("Internship opportunities require internship details.");
+        }
+        return request.internship();
+    }
+
+    private StudentProjectDetailsRequest requireStudentProjectDetails(CreateOpportunityRequest request) {
+        if (request.studentProject() == null) {
+            throw new BadRequestException("Student project opportunities require student project details.");
+        }
+        return request.studentProject();
     }
 
     private record PostingProfileSelection(

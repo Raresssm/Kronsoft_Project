@@ -1,7 +1,6 @@
 package com.agora.agoracampus.opportunity.competition.mapper;
 
-import com.agora.agoracampus.opportunity.competition.dto.request.CreateCompetitionRequest;
-import com.agora.agoracampus.opportunity.competition.dto.request.UpdateCompetitionRequest;
+import com.agora.agoracampus.opportunity.competition.dto.request.CompetitionDetailsRequest;
 import com.agora.agoracampus.opportunity.competition.dto.response.CompetitionResponse;
 import com.agora.agoracampus.opportunity.competition.model.Competition;
 import com.agora.agoracampus.opportunity.core.model.Opportunity;
@@ -10,24 +9,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class CompetitionMapper {
 
-    public Competition toEntity(CreateCompetitionRequest request, Opportunity opportunity) {
+    public Competition toEntity(CompetitionDetailsRequest details, Opportunity opportunity) {
         return Competition.builder()
                 .opportunity(opportunity)
-                .theme(request.getTheme())
-                .eligibility(request.getEligibility())
-                .prize(request.getPrize())
-                .deadline(request.getDeadline())
+                .theme(details.theme())
+                .eligibility(details.eligibility())
+                .prize(details.prize())
+                .deadline(details.deadline())
                 .build();
     }
 
-    public void updateEntity(Competition competition, UpdateCompetitionRequest request) {
-        competition.setTheme(request.getTheme());
-        competition.setEligibility(request.getEligibility());
-        competition.setPrize(request.getPrize());
-        competition.setDeadline(request.getDeadline());
-    }
-
     public CompetitionResponse toResponse(Competition competition) {
+        if (competition == null) {
+            return null;
+        }
         return CompetitionResponse.builder()
                 .competitionId(competition.getId())
                 .opportunityId(competition.getOpportunity().getId())

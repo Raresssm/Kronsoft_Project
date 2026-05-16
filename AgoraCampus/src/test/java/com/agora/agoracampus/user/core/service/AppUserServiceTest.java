@@ -1,11 +1,14 @@
 package com.agora.agoracampus.user.core.service;
 
+import com.agora.agoracampus.exception.BadRequestException;
 import com.agora.agoracampus.exception.ConflictException;
 import com.agora.agoracampus.exception.NotFoundException;
+import com.agora.agoracampus.security.SecurityIdentityService;
 import com.agora.agoracampus.user.core.dto.request.CreateAppUserRequest;
 import com.agora.agoracampus.user.core.dto.response.AppUserResponse;
 import com.agora.agoracampus.user.core.model.AppUser;
 import com.agora.agoracampus.user.core.repository.AppUserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -27,10 +30,19 @@ class AppUserServiceTest {
     @Mock
     private AppUserRepository appUserRepository;
 
+    @Mock
+    private SecurityIdentityService securityIdentityService;
+
+    private AppUserService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new AppUserService(appUserRepository, securityIdentityService);
+    }
+
     @Test
     void createUserRejectsDuplicateKeycloakId() {
-        AppUserService service = new AppUserService(appUserRepository);
-
+        when(securityIdentityService.requireKeycloakSubject()).thenReturn("kc-1");
         when(appUserRepository.existsByKeycloakId("kc-1")).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> service.createUser(request()));
@@ -39,8 +51,7 @@ class AppUserServiceTest {
 
     @Test
     void createUserRejectsDuplicateEmail() {
-        AppUserService service = new AppUserService(appUserRepository);
-
+        when(securityIdentityService.requireKeycloakSubject()).thenReturn("kc-1");
         when(appUserRepository.existsByEmail("user@example.com")).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> service.createUser(request()));
@@ -49,8 +60,7 @@ class AppUserServiceTest {
 
     @Test
     void createUserRejectsDuplicateUsername() {
-        AppUserService service = new AppUserService(appUserRepository);
-
+        when(securityIdentityService.requireKeycloakSubject()).thenReturn("kc-1");
         when(appUserRepository.existsByUsername("user")).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> service.createUser(request()));
@@ -58,8 +68,17 @@ class AppUserServiceTest {
     }
 
     @Test
+    void createUserRejectsMismatchedEmailClaim() {
+        when(securityIdentityService.requireKeycloakSubject()).thenReturn("kc-1");
+        when(securityIdentityService.findEmailClaim()).thenReturn(Optional.of("other@example.com"));
+
+        assertThrows(BadRequestException.class, () -> service.createUser(request()));
+        verify(appUserRepository, never()).save(any(AppUser.class));
+    }
+
+    @Test
     void createUserPersistsNewUser() {
-        AppUserService service = new AppUserService(appUserRepository);
+        when(securityIdentityService.requireKeycloakSubject()).thenReturn("kc-1");
         AppUser saved = user(1L);
 
         when(appUserRepository.save(any(AppUser.class))).thenReturn(saved);
@@ -75,15 +94,13 @@ class AppUserServiceTest {
 
     @Test
     void getRequiredEntityThrowsWhenMissing() {
-        AppUserService service = new AppUserService(appUserRepository);
-
         when(appUserRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> service.getRequiredEntity(1L));
     }
 
     private CreateAppUserRequest request() {
-        return new CreateAppUserRequest("kc-1", "user@example.com", "user");
+        return new CreateAppUserRequest("user@example.com", "user");
     }
 
     private AppUser user(Long id) {

@@ -9,6 +9,7 @@ import java.util.List;
 
 public interface IndividualProfileRepository extends JpaRepository<IndividualProfile, Long> {
 
+    java.util.Optional<IndividualProfile> findByProfile_Id(Long profileId);
 
     @Query("""
             SELECT i FROM IndividualProfile i

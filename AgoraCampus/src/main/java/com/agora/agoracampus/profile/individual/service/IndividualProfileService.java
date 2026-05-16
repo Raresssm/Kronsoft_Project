@@ -3,7 +3,6 @@ package com.agora.agoracampus.profile.individual.service;
 import com.agora.agoracampus.exception.BadRequestException;
 import com.agora.agoracampus.exception.ConflictException;
 import com.agora.agoracampus.exception.NotFoundException;
-import com.agora.agoracampus.profile.core.mapper.ProfileMapper;
 import com.agora.agoracampus.profile.core.model.Profile;
 import com.agora.agoracampus.profile.core.model.ProfileActorRole;
 import com.agora.agoracampus.profile.core.model.ProfileType;
@@ -16,17 +15,15 @@ import com.agora.agoracampus.profile.individual.mapper.IndividualProfileMapper;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import com.agora.agoracampus.profile.individual.repository.IndividualProfileRepository;
 import com.agora.agoracampus.user.core.model.AppUser;
+import com.agora.agoracampus.security.SecurityAuthorityUtils;
 import com.agora.agoracampus.user.core.repository.AppUserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +33,6 @@ public class IndividualProfileService {
     private final ProfileRepository profileRepository;
     private final ProfileService profileService;
     private final IndividualProfileMapper individualProfileMapper;
-    private final ProfileMapper profileMapper;
     private final AppUserRepository appUserRepository;
 
 
@@ -44,7 +40,8 @@ public class IndividualProfileService {
     public IndividualProfileResponse getByProfileId(Long profileId, Long actingUserId) {
         resolveActorRole(actingUserId);
         IndividualProfile profile = individualProfileRepository
-                .findById(profileId).orElseThrow(() -> new NotFoundException("Individual profile not found"));
+                .findByProfile_Id(profileId)
+                .orElseThrow(() -> new NotFoundException("Individual profile not found"));
         return individualProfileMapper.toResponse(profile);
     }
 
@@ -94,6 +91,7 @@ public class IndividualProfileService {
         ind.setFirstName(dto.firstName());
         ind.setLastName(dto.lastName());
         ind.setPhone(dto.phone());
+        savedProfile.setIndividualProfile(ind);
 
         return individualProfileMapper.toResponse(
                 individualProfileRepository.save(ind));
@@ -103,7 +101,7 @@ public class IndividualProfileService {
     public IndividualProfileResponse update(Long profileId, Long actingUserId, IndividualProfileUpdateRequest dto) {
         ProfileActorRole actorRole = resolveActorRole(actingUserId);
         IndividualProfile existing = individualProfileRepository
-                .findById(profileId)
+                .findByProfile_Id(profileId)
                 .orElseThrow(() -> new NotFoundException("Individual profile not found"));
 
         requireAdminOrOwner(
@@ -125,7 +123,7 @@ public class IndividualProfileService {
     public void delete(Long profileId, Long actingUserId) {
         ProfileActorRole actorRole = resolveActorRole(actingUserId);
         IndividualProfile existing = individualProfileRepository
-                .findById(profileId).orElseThrow(() -> new NotFoundException("Individual profile not found"));
+                .findByProfile_Id(profileId).orElseThrow(() -> new NotFoundException("Individual profile not found"));
 
         requireAdminOrOwner(
                 actorRole,
@@ -158,8 +156,8 @@ public class IndividualProfileService {
     }
 
 
-    private AppUser validateUserExists(Long userId) {
-        return appUserRepository.findById(userId)
+    private void validateUserExists(Long userId) {
+        appUserRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User " + userId + " was not found."));
     }
 
@@ -167,8 +165,8 @@ public class IndividualProfileService {
         validateUserExists(actingUserId);
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean authenticated = isAuthenticated(authentication);
-        boolean isAdmin = authenticated && hasAdminAuthority(authentication);
+        boolean authenticated = SecurityAuthorityUtils.isAuthenticated(authentication);
+        boolean isAdmin = authenticated && SecurityAuthorityUtils.hasAdminAuthority(authentication);
 
         if (authenticated) {
             validateAuthenticatedIdentity(actingUserId, isAdmin, authentication);
@@ -190,22 +188,6 @@ public class IndividualProfileService {
         if (actorRole != ProfileActorRole.ADMIN && !actingUserId.equals(ownerId)) {
             throw new BadRequestException(message);
         }
-    }
-
-    private boolean isAuthenticated(Authentication authentication) {
-        return authentication != null
-                && authentication.isAuthenticated()
-                && !(authentication instanceof AnonymousAuthenticationToken);
-    }
-
-    private boolean hasAdminAuthority(Authentication authentication) {
-        for (GrantedAuthority authority : authentication.getAuthorities()) {
-            String normalizedAuthority = authority.getAuthority().toUpperCase(Locale.ROOT);
-            if ("ROLE_ADMIN".equals(normalizedAuthority) || "ADMIN".equals(normalizedAuthority)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void validateAuthenticatedIdentity(

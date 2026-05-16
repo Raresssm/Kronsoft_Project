@@ -3,6 +3,9 @@ package com.agora.agoracampus.opportunity.core.model;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import com.agora.agoracampus.profile.organization.model.OrganizationProfile;
 import com.agora.agoracampus.opportunity.application.model.OpportunityApplication;
+import com.agora.agoracampus.opportunity.competition.model.Competition;
+import com.agora.agoracampus.opportunity.internship.model.Internship;
+import com.agora.agoracampus.opportunity.studentproject.model.StudentProject;
 import com.agora.agoracampus.opportunity.volunteering.model.Volunteering;
 import com.agora.agoracampus.user.core.model.AppUser;
 import jakarta.persistence.*;
@@ -60,8 +63,17 @@ public class Opportunity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @OneToOne(mappedBy = "opportunity", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(mappedBy = "opportunity", cascade = CascadeType.ALL, orphanRemoval = true)
     private Volunteering volunteering;
+
+    @OneToOne(mappedBy = "opportunity", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Competition competition;
+
+    @OneToOne(mappedBy = "opportunity", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Internship internship;
+
+    @OneToOne(mappedBy = "opportunity", cascade = CascadeType.ALL, orphanRemoval = true)
+    private StudentProject studentProject;
 
     @OneToMany(mappedBy = "opportunity", fetch = FetchType.LAZY)
     private List<OpportunityApplication> applications = new ArrayList<>();

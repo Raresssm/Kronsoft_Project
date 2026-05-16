@@ -1,6 +1,9 @@
 package com.agora.agoracampus.opportunity.core.dto.response;
 
+import com.agora.agoracampus.opportunity.competition.dto.response.CompetitionResponse;
 import com.agora.agoracampus.opportunity.core.model.OpportunityType;
+import com.agora.agoracampus.opportunity.internship.dto.response.InternshipResponse;
+import com.agora.agoracampus.opportunity.studentproject.dto.response.StudentProjectResponse;
 import com.agora.agoracampus.profile.core.dto.response.PostingProfileResponse;
 import com.agora.agoracampus.opportunity.volunteering.dto.response.VolunteeringResponse;
 
@@ -17,6 +20,9 @@ public record OpportunityResponse(
         String additionalInfo,
         Instant createdAt,
         PostingProfileResponse postingProfile,
-        VolunteeringResponse volunteering
+        VolunteeringResponse volunteering,
+        CompetitionResponse competition,
+        InternshipResponse internship,
+        StudentProjectResponse studentProject
 ) {
 }

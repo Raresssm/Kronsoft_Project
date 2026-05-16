@@ -3,7 +3,6 @@ package com.agora.agoracampus.web;
 import com.agora.agoracampus.connection.controller.ConnectionController;
 import com.agora.agoracampus.connection.dto.request.CreateConnectionRequest;
 import com.agora.agoracampus.connection.dto.request.UpdateConnectionStatusRequest;
-import com.agora.agoracampus.connection.model.ConnectionStatus;
 import com.agora.agoracampus.connection.service.ConnectionService;
 import com.agora.agoracampus.feed.comment.controller.CommentController;
 import com.agora.agoracampus.feed.comment.dto.request.CreateCommentRequest;
@@ -14,7 +13,6 @@ import com.agora.agoracampus.feed.post.dto.request.UpdatePostRequest;
 import com.agora.agoracampus.feed.post.service.PostService;
 import com.agora.agoracampus.feed.reaction.controller.ReactionController;
 import com.agora.agoracampus.feed.reaction.dto.request.UpsertReactionRequest;
-import com.agora.agoracampus.feed.reaction.model.ReactionType;
 import com.agora.agoracampus.feed.reaction.service.ReactionService;
 import com.agora.agoracampus.messaging.controller.MessageController;
 import com.agora.agoracampus.messaging.dto.request.CreateMessageRequest;
@@ -85,7 +83,6 @@ class SocialEndpointTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "keycloakId": "kc-1",
                                   "email": "user@example.com",
                                   "username": "user"
                                 }

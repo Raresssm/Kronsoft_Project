@@ -12,6 +12,10 @@ import com.agora.agoracampus.opportunity.core.mapper.OpportunityMapper;
 import com.agora.agoracampus.opportunity.core.model.Opportunity;
 import com.agora.agoracampus.opportunity.core.model.OpportunityType;
 import com.agora.agoracampus.opportunity.core.repository.OpportunityRepository;
+import com.agora.agoracampus.opportunity.competition.mapper.CompetitionMapper;
+import com.agora.agoracampus.opportunity.internship.dto.request.InternshipDetailsRequest;
+import com.agora.agoracampus.opportunity.internship.mapper.InternshipMapper;
+import com.agora.agoracampus.opportunity.studentproject.mapper.StudentProjectMapper;
 import com.agora.agoracampus.opportunity.volunteering.dto.request.VolunteeringDetailsRequest;
 import com.agora.agoracampus.opportunity.volunteering.mapper.VolunteeringMapper;
 import com.agora.agoracampus.profile.core.model.Profile;
@@ -63,7 +67,15 @@ class OpportunityServiceTest {
     private OpportunityApplicationRepository opportunityApplicationRepository;
 
     private final VolunteeringMapper volunteeringMapper = new VolunteeringMapper();
-    private final OpportunityMapper opportunityMapper = new OpportunityMapper(volunteeringMapper);
+    private final CompetitionMapper competitionMapper = new CompetitionMapper();
+    private final InternshipMapper internshipMapper = new InternshipMapper();
+    private final StudentProjectMapper studentProjectMapper = new StudentProjectMapper();
+    private final OpportunityMapper opportunityMapper = new OpportunityMapper(
+            volunteeringMapper,
+            competitionMapper,
+            internshipMapper,
+            studentProjectMapper
+    );
     private final OpportunityApplicationMapper opportunityApplicationMapper = new OpportunityApplicationMapper();
 
     @Test
@@ -196,7 +208,10 @@ class OpportunityServiceTest {
                 opportunityApplicationRepository,
                 opportunityMapper,
                 opportunityApplicationMapper,
-                volunteeringMapper
+                volunteeringMapper,
+                competitionMapper,
+                internshipMapper,
+                studentProjectMapper
         );
     }
 
@@ -206,6 +221,9 @@ class OpportunityServiceTest {
             OpportunityType type,
             VolunteeringDetailsRequest volunteering
     ) {
+        InternshipDetailsRequest internship = type == OpportunityType.INTERNSHIP
+                ? new InternshipDetailsRequest("3 months", "Paid", "Java")
+                : null;
         return new CreateOpportunityRequest(
                 1L,
                 organizationProfileId,
@@ -216,7 +234,10 @@ class OpportunityServiceTest {
                 "Summer",
                 "Description",
                 null,
-                volunteering
+                volunteering,
+                null,
+                internship,
+                null
         );
     }
 

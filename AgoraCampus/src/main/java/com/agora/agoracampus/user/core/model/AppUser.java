@@ -1,7 +1,7 @@
 package com.agora.agoracampus.user.core.model;
 
-import com.agora.agoracampus.opportunity.core.model.Opportunity;
 import com.agora.agoracampus.opportunity.application.model.OpportunityApplication;
+import com.agora.agoracampus.opportunity.core.model.Opportunity;
 import com.agora.agoracampus.profile.core.model.Profile;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -36,7 +36,7 @@ public class AppUser {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @OneToOne(mappedBy = "appUser", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "appUser")
     private Profile profile;
 
     @OneToMany(mappedBy = "postedByUser", fetch = FetchType.LAZY)

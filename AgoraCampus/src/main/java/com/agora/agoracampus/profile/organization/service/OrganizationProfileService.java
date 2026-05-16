@@ -15,17 +15,15 @@ import com.agora.agoracampus.profile.organization.mapper.OrganizationProfileMapp
 import com.agora.agoracampus.profile.organization.model.OrganizationProfile;
 import com.agora.agoracampus.profile.organization.repository.OrganizationProfileRepository;
 import com.agora.agoracampus.user.core.model.AppUser;
+import com.agora.agoracampus.security.SecurityAuthorityUtils;
 import com.agora.agoracampus.user.core.repository.AppUserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -116,6 +114,7 @@ public class OrganizationProfileService {
         org.setPhone(dto.phone());
         org.setIndustry(dto.industry());
         org.setSpecialties(dto.specialties());
+        savedProfile.setOrganizationProfile(org);
 
         return organizationProfileMapper.toResponse(
                 organizationProfileRepository.save(org));
@@ -157,8 +156,8 @@ public class OrganizationProfileService {
         profileService.deleteProfile(existing.getProfile().getId(),actingUserId);
     }
 
-    private AppUser validateUserExists(Long userId) {
-        return appUserRepository.findById(userId)
+    private void validateUserExists(Long userId) {
+        appUserRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User " + userId + " was not found."));
     }
 
@@ -166,8 +165,8 @@ public class OrganizationProfileService {
         validateUserExists(actingUserId);
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean authenticated = isAuthenticated(authentication);
-        boolean isAdmin = authenticated && hasAdminAuthority(authentication);
+        boolean authenticated = SecurityAuthorityUtils.isAuthenticated(authentication);
+        boolean isAdmin = authenticated && SecurityAuthorityUtils.hasAdminAuthority(authentication);
 
         if (authenticated) {
             validateAuthenticatedIdentity(actingUserId, isAdmin, authentication);
@@ -186,22 +185,6 @@ public class OrganizationProfileService {
         if (actorRole != ProfileActorRole.ADMIN && !actingUserId.equals(ownerId)) {
             throw new BadRequestException(message);
         }
-    }
-
-    private boolean isAuthenticated(Authentication authentication) {
-        return authentication != null
-                && authentication.isAuthenticated()
-                && !(authentication instanceof AnonymousAuthenticationToken);
-    }
-
-    private boolean hasAdminAuthority(Authentication authentication) {
-        for (GrantedAuthority authority : authentication.getAuthorities()) {
-            String normalizedAuthority = authority.getAuthority().toUpperCase(Locale.ROOT);
-            if ("ROLE_ADMIN".equals(normalizedAuthority) || "ADMIN".equals(normalizedAuthority)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void validateAuthenticatedIdentity(

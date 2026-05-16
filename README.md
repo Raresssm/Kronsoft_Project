@@ -1,112 +1,63 @@
 # AgoraCampus Backend
 
-Spring Boot backend for AgoraCampus.
+Spring Boot API with PostgreSQL, Keycloak JWT auth, and Flyway migrations.
 
 ## Requirements
 
-- Java 21
-- Maven
-- PostgreSQL running locally
-- A PostgreSQL database created for the project
+- Java 21, Maven, Docker
 
-## Database Configuration
+## Quick start
 
-The database settings are read from `AgoraCampus/src/main/resources/application.yaml`.
-
-Current defaults:
-
-```yaml
-spring:
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/agora_campus}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+```bash
+./scripts/dev-up.sh          # Postgres + Keycloak (realm auto-imported)
+cd AgoraCampus && mvn spring-boot:run
 ```
 
-That means the app uses these values unless you override them:
+Configuration: copy **`.env.example`** to **`.env`** at the repo root (used by Docker Compose and optional Spring overrides; `.env` is not committed).
 
-- Database URL: `jdbc:postgresql://localhost:5432/agora_campus`
-- Username: `postgres`
-- Password: `postgres`
+After editing `docker/keycloak/realms/agora-campus-realm.json`:
 
-If your local database name, username, or password is different, set these environment variables before running the server.
-
-PowerShell example:
-
-```powershell
-$env:DB_URL="jdbc:postgresql://localhost:5432/your_database_name"
-$env:DB_USERNAME="your_username"
-$env:DB_PASSWORD="your_password"
+```bash
+./scripts/dev-reset.sh       # wipes volumes and re-imports realm
 ```
 
-Example using the default PostgreSQL username and a custom database:
+## URLs (defaults)
 
-```powershell
-$env:DB_URL="jdbc:postgresql://localhost:5432/agora_campus"
-$env:DB_USERNAME="postgres"
-$env:DB_PASSWORD="your_postgres_password"
+| Service | URL |
+|---------|-----|
+| API / Swagger | http://localhost:8080 · http://localhost:8080/swagger-ui.html |
+| Keycloak | http://localhost:8090 · realm `agora-campus` |
+| Account / login | http://localhost:8090/realms/agora-campus/account |
+| JWT issuer | http://localhost:8090/realms/agora-campus |
+
+**Dev users:** `admin`/`admin`, `demo`/`demo`  
+**Clients:** `agora-swagger-ui` (Swagger PKCE), `agora-frontend` (SPA PKCE)  
+**Roles:** `admin` → `ROLE_ADMIN`, `user` → `ROLE_USER`
+
+All `/api/**` routes need `Authorization: Bearer <token>`. Swagger UI and OpenAPI docs are public.
+
+### Frontend (`keycloak-js`)
+
+```env
+VITE_KEYCLOAK_URL=http://localhost:8090
+VITE_KEYCLOAK_REALM=agora-campus
+VITE_KEYCLOAK_CLIENT_ID=agora-frontend
+VITE_API_URL=http://localhost:8080
 ```
 
-## Run The Server
+After login: `GET /api/users/me` → `POST /api/users` if 404 → create profile → other APIs with `actingUserId` and the same Bearer token.
 
-From the project root:
+## Database
 
-```powershell
-cd AgoraCampus
-mvn spring-boot:run
+- App DB: `agora_campus` on `localhost:5432` (`postgres`/`postgres`)
+- Schema: Flyway in `AgoraCampus/src/main/resources/db/migration/`, Hibernate `ddl-auto: validate`
+
+Override JDBC or Keycloak settings via `.env` or environment variables (`DB_URL`, `KEYCLOAK_ISSUER_URI`, `CORS_ALLOWED_ORIGINS`, etc.).
+
+## Tests
+
+```bash
+cd AgoraCampus && mvn test
 ```
 
-If the server starts successfully, it runs on:
-
-```text
-http://localhost:8080
-```
-
-Swagger UI is available at:
-
-```text
-http://localhost:8080/swagger-ui/index.html
-```
-
-## Run Tests
-
-From `AgoraCampus`:
-
-```powershell
-mvn test
-```
-
-If your PostgreSQL password is not `postgres`, set `DB_PASSWORD` first:
-
-```powershell
-$env:DB_PASSWORD="your_postgres_password"
-mvn test
-```
-
-## Common Issue: Port 8080 Already In Use
-
-If `mvn spring-boot:run` fails but Swagger still opens in the browser, another copy of the app is probably already running.
-
-Find the process:
-
-```powershell
-netstat -ano | Select-String ':8080'
-```
-
-Stop it by replacing `<PID>` with the process id from the command above:
-
-```powershell
-taskkill /PID <PID> /F
-```
-
-Or run the server on another port:
-
-```powershell
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=8081"
-```
-
-Then open:
-
-```text
-http://localhost:8081/swagger-ui/index.html
-```
+Uses H2 and a permit-all security profile — Postgres and Keycloak are not required.
