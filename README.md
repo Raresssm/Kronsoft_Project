@@ -242,6 +242,183 @@ Authorization: Bearer <token>
 
 Swagger UI can obtain a token through Keycloak.
 
+## Database Diagram
+
+The current Mermaid source lives in [db_diagram/agora-erd.mmd](db_diagram/agora-erd.mmd). It includes the `Background` entity and the rest of the main app model.
+
+```mermaid
+erDiagram
+  APP_USERS {
+    BIGINT app_user_id PK
+    STRING keycloak_id
+    STRING email
+    STRING username
+    TIMESTAMP created_at
+  }
+
+  PROFILES {
+    BIGINT profile_id PK
+    BIGINT app_user_id FK
+    STRING headline
+    STRING description
+    STRING location
+    STRING website
+    STRING profile_picture
+    STRING cover_image
+    STRING profile_type
+    TIMESTAMP updated_at
+  }
+
+  INDIVIDUAL_PROFILES {
+    BIGINT individual_profile_id PK
+    BIGINT profile_id FK
+    STRING first_name
+    STRING last_name
+    STRING phone
+    STRING cv_document
+  }
+
+  ORGANIZATION_PROFILES {
+    BIGINT organization_profile_id PK
+    BIGINT profile_id FK
+    STRING organization_name
+    STRING phone
+    STRING industry
+    STRING specialties
+  }
+
+  BACKGROUND {
+    BIGINT background_id PK
+    BIGINT individual_profile_id FK
+    STRING type
+    STRING title
+    STRING description
+    DATE start_date
+    DATE end_date
+    BOOLEAN currently_ongoing
+  }
+
+  POSTS {
+    BIGINT post_id PK
+    BIGINT app_user_id FK
+    STRING content
+    STRING media_url
+    TIMESTAMP created_at
+  }
+
+  COMMENTS {
+    BIGINT comment_id PK
+    BIGINT post_id FK
+    BIGINT app_user_id FK
+    STRING content
+    TIMESTAMP created_at
+  }
+
+  REACTIONS {
+    BIGINT reaction_id PK
+    BIGINT post_id FK
+    BIGINT app_user_id FK
+    STRING reaction_type
+    TIMESTAMP created_at
+  }
+
+  MESSAGES {
+    BIGINT message_id PK
+    BIGINT sender_user_id FK
+    BIGINT receiver_user_id FK
+    STRING content
+    TIMESTAMP sent_at
+    BOOLEAN is_read
+  }
+
+  CONNECTIONS {
+    BIGINT connection_id PK
+    BIGINT requester_user_id FK
+    BIGINT receiver_user_id FK
+    STRING status
+    TIMESTAMP created_at
+  }
+
+  OPPORTUNITIES {
+    BIGINT opportunity_id PK
+    BIGINT posted_by_user_id FK
+    BIGINT organization_profile_id FK
+    BIGINT individual_profile_id FK
+    STRING title
+    STRING type
+    STRING location
+    STRING period
+    STRING description
+    STRING additional_info
+    TIMESTAMP created_at
+  }
+
+  OPPORTUNITY_APPLICATIONS {
+    BIGINT application_id PK
+    BIGINT opportunity_id FK
+    BIGINT applicant_user_id FK
+    STRING status
+    TIMESTAMP applied_at
+  }
+
+  VOLUNTEERING {
+    BIGINT volunteering_id PK
+    BIGINT opportunity_id FK
+    STRING target_audience
+    STRING schedule
+    STRING benefits
+  }
+
+  COMPETITIONS {
+    BIGINT competition_id PK
+    BIGINT opportunity_id FK
+    STRING rules
+    STRING prizes
+    DATE deadline
+  }
+
+  INTERNSHIPS {
+    BIGINT internship_id PK
+    BIGINT opportunity_id FK
+    STRING duration
+    STRING compensation
+    STRING requirements
+  }
+
+  STUDENT_PROJECTS {
+    BIGINT student_project_id PK
+    BIGINT opportunity_id FK
+    STRING domain
+    STRING team_size
+    STRING requirements
+  }
+
+  APP_USERS ||--|| PROFILES : has
+  PROFILES ||--|| INDIVIDUAL_PROFILES : individual_subtype
+  PROFILES ||--|| ORGANIZATION_PROFILES : organization_subtype
+  INDIVIDUAL_PROFILES ||--o{ BACKGROUND : owns
+
+  APP_USERS ||--o{ POSTS : authors
+  APP_USERS ||--o{ COMMENTS : writes
+  POSTS ||--o{ COMMENTS : contains
+  APP_USERS ||--o{ REACTIONS : reacts
+  POSTS ||--o{ REACTIONS : receives
+  APP_USERS ||--o{ MESSAGES : sends
+  APP_USERS ||--o{ MESSAGES : receives
+  APP_USERS ||--o{ CONNECTIONS : requests
+  APP_USERS ||--o{ CONNECTIONS : accepts
+
+  APP_USERS ||--o{ OPPORTUNITIES : posts
+  ORGANIZATION_PROFILES ||--o{ OPPORTUNITIES : posts_for
+  INDIVIDUAL_PROFILES ||--o{ OPPORTUNITIES : posts_for
+  OPPORTUNITIES ||--o{ OPPORTUNITY_APPLICATIONS : has
+  APP_USERS ||--o{ OPPORTUNITY_APPLICATIONS : applies
+  OPPORTUNITIES ||--o| VOLUNTEERING : volunteering_details
+  OPPORTUNITIES ||--o| COMPETITIONS : competition_details
+  OPPORTUNITIES ||--o| INTERNSHIPS : internship_details
+  OPPORTUNITIES ||--o| STUDENT_PROJECTS : student_project_details
+```
+
 ## Stop The App
 
 Stop the frontend and backend API with `Ctrl+C` in their terminals.
