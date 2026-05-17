@@ -1,63 +1,155 @@
-# AgoraCampus Backend
+# AgoraCampus
 
-Spring Boot API with PostgreSQL, Keycloak JWT auth, and Flyway migrations.
+Spring Boot API with PostgreSQL, Keycloak JWT auth, Flyway migrations, and a Next.js frontend.
 
 ## Requirements
 
-- Java 21, Maven, Docker
+- Java 21
+- Maven
+- Docker Desktop
+- Node.js and npm
 
-## Quick start
+On Windows PowerShell, use `npm.cmd` instead of `npm` if script execution policy blocks `npm.ps1`.
 
-```bash
-./scripts/dev-up.sh          # Postgres + Keycloak (realm auto-imported)
-cd AgoraCampus && mvn spring-boot:run
+## Run The App Locally
+
+Run the backend dependencies, backend API, and frontend in separate terminals.
+
+### 1. Start Postgres And Keycloak
+
+From the repository root:
+
+```powershell
+cd C:\path\to\Kronsoft_Project
+docker-compose up -d
 ```
 
-Configuration: copy **`.env.example`** to **`.env`** at the repo root (used by Docker Compose and optional Spring overrides; `.env` is not committed).
+Wait until both containers are healthy:
 
-After editing `docker/keycloak/realms/agora-campus-realm.json`:
-
-```bash
-./scripts/dev-reset.sh       # wipes volumes and re-imports realm
+```powershell
+docker-compose ps
 ```
 
-## URLs (defaults)
+Default ports:
 
-| Service | URL |
-|---------|-----|
-| API / Swagger | http://localhost:8080 · http://localhost:8080/swagger-ui.html |
-| Keycloak | http://localhost:8090 · realm `agora-campus` |
-| Account / login | http://localhost:8090/realms/agora-campus/account |
-| JWT issuer | http://localhost:8090/realms/agora-campus |
+- PostgreSQL: `localhost:5432`
+- Keycloak: `http://localhost:8090`
 
-**Dev users:** `admin`/`admin`, `demo`/`demo`  
-**Clients:** `agora-swagger-ui` (Swagger PKCE), `agora-frontend` (SPA PKCE)  
-**Roles:** `admin` → `ROLE_ADMIN`, `user` → `ROLE_USER`
-
-All `/api/**` routes need `Authorization: Bearer <token>`. Swagger UI and OpenAPI docs are public.
-
-### Frontend (`keycloak-js`)
+If you already have a local PostgreSQL running on `5432`, create a local `.env` file at the repository root:
 
 ```env
-VITE_KEYCLOAK_URL=http://localhost:8090
-VITE_KEYCLOAK_REALM=agora-campus
-VITE_KEYCLOAK_CLIENT_ID=agora-frontend
-VITE_API_URL=http://localhost:8080
+POSTGRES_PORT=5433
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=agora_campus
+
+KEYCLOAK_PORT=8090
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=admin
+
+DB_URL=jdbc:postgresql://127.0.0.1:5433/agora_campus
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
 ```
 
-After login: `GET /api/users/me` → `POST /api/users` if 404 → create profile → other APIs with `actingUserId` and the same Bearer token.
+Then restart Docker Compose:
 
-## Database
+```powershell
+docker-compose down
+docker-compose up -d
+```
 
-- App DB: `agora_campus` on `localhost:5432` (`postgres`/`postgres`)
-- Schema: Flyway in `AgoraCampus/src/main/resources/db/migration/`, Hibernate `ddl-auto: validate`
+`.env` is local-only and must not be committed.
 
-Override JDBC or Keycloak settings via `.env` or environment variables (`DB_URL`, `KEYCLOAK_ISSUER_URI`, `CORS_ALLOWED_ORIGINS`, etc.).
+### 2. Start The Backend API
+
+From a new terminal:
+
+```powershell
+cd C:\path\to\Kronsoft_Project\AgoraCampus
+mvn spring-boot:run
+```
+
+If you used `POSTGRES_PORT=5433`, run:
+
+```powershell
+cd C:\path\to\Kronsoft_Project\AgoraCampus
+$env:DB_URL='jdbc:postgresql://127.0.0.1:5433/agora_campus'
+$env:DB_USERNAME='postgres'
+$env:DB_PASSWORD='postgres'
+mvn spring-boot:run
+```
+
+Backend URLs:
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- API root `http://localhost:8080` may return `401 Unauthorized`; this is expected.
+
+### 3. Start The Frontend
+
+From a new terminal:
+
+```powershell
+cd C:\path\to\Kronsoft_Project\AgoraCampusFrontEnd
+npm.cmd install
+npm.cmd run dev
+```
+
+Frontend URL:
+
+- `http://localhost:3000`
+
+Current state: the frontend runs separately, but login/API calls are not wired to Keycloak/backend yet.
+
+## Keycloak Development Data
+
+- Keycloak: `http://localhost:8090`
+- Admin console: `http://localhost:8090/admin`
+- Realm: `agora-campus`
+- Account page: `http://localhost:8090/realms/agora-campus/account`
+
+Dev users:
+
+- `admin` / `admin`
+- `demo` / `demo`
+
+Clients:
+
+- `agora-swagger-ui`
+- `agora-frontend`
+
+All `/api/**` routes require:
+
+```http
+Authorization: Bearer <token>
+```
+
+Swagger UI can obtain a token through Keycloak.
+
+## Stop The App
+
+Stop the frontend and backend API with `Ctrl+C` in their terminals.
+
+Stop Postgres and Keycloak from the repository root:
+
+```powershell
+docker-compose down
+```
 
 ## Tests
 
-```bash
-cd AgoraCampus && mvn test
+Backend tests:
+
+```powershell
+cd C:\path\to\Kronsoft_Project\AgoraCampus
+mvn test
 ```
 
-Uses H2 and a permit-all security profile — Postgres and Keycloak are not required.
+Frontend build check:
+
+```powershell
+cd C:\path\to\Kronsoft_Project\AgoraCampusFrontEnd
+npm.cmd install
+npm.cmd run build
+```
