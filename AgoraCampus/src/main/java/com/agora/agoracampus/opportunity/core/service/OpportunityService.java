@@ -4,6 +4,7 @@ import com.agora.agoracampus.exception.BadRequestException;
 import com.agora.agoracampus.exception.ConflictException;
 import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.opportunity.application.dto.request.CreateOpportunityApplicationRequest;
+import com.agora.agoracampus.opportunity.application.dto.request.UpdateOpportunityApplicationStatusRequest;
 import com.agora.agoracampus.opportunity.application.dto.response.OpportunityApplicationResponse;
 import com.agora.agoracampus.opportunity.application.mapper.OpportunityApplicationMapper;
 import com.agora.agoracampus.opportunity.application.model.ApplicationStatus;
@@ -180,6 +181,26 @@ public class OpportunityService {
                 .stream()
                 .map(opportunityApplicationMapper::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public OpportunityApplicationResponse updateApplicationStatus(
+            Long applicationId,
+            Long actingUserId,
+            UpdateOpportunityApplicationStatusRequest request
+    ) {
+        OpportunityActorRole actorRole = resolveActorRole(actingUserId);
+        OpportunityApplication application = opportunityApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new NotFoundException("Opportunity application " + applicationId + " was not found."));
+
+        if (request.status() == ApplicationStatus.PENDING) {
+            throw new BadRequestException("Cannot revert an application to PENDING.");
+        }
+
+        requireAdminOrOwner(actorRole, actingUserId, application.getOpportunity().getPostedByUser().getId());
+
+        application.setStatus(request.status());
+        return opportunityApplicationMapper.toResponse(opportunityApplicationRepository.save(application));
     }
 
     // ── READ ──────────────────────────────────────────────────────────────────

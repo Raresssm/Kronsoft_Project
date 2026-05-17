@@ -1,6 +1,7 @@
 package com.agora.agoracampus.opportunity.core.controller;
 
 import com.agora.agoracampus.opportunity.application.dto.request.CreateOpportunityApplicationRequest;
+import com.agora.agoracampus.opportunity.application.dto.request.UpdateOpportunityApplicationStatusRequest;
 import com.agora.agoracampus.opportunity.application.dto.response.OpportunityApplicationResponse;
 import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
 import com.agora.agoracampus.opportunity.core.dto.response.OpportunityResponse;
@@ -73,4 +74,13 @@ public class OpportunityController {
     ) {
         return ResponseEntity.ok(opportunityService.getApplicationsByApplicant(applicantUserId, actingUserId));
     }
+
+        @PatchMapping("/applications/{applicationId}/status")
+        public ResponseEntity<OpportunityApplicationResponse> updateApplicationStatus(
+                        @PathVariable Long applicationId,
+                        @Valid @RequestBody UpdateOpportunityApplicationStatusRequest request,
+                        @RequestParam Long actingUserId
+        ) {
+                return ResponseEntity.ok(opportunityService.updateApplicationStatus(applicationId, actingUserId, request));
+        }
 }

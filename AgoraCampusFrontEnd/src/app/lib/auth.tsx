@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { apiBaseUrl, keycloakConfig } from "./auth-config";
@@ -165,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [error, setError] = useState("");
+  const appUserProvisionPromiseRef = useRef<Promise<AppUser> | null>(null);
 
   const authenticated = Boolean(session);
 
@@ -214,46 +216,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refreshToken],
   );
 
+  const provisionAppUser = useCallback(
+    async (sessionToUse: AuthSession, accountType: "INDIVIDUAL" | "ORGANIZATION" = readStoredAccountType()) => {
+      if (appUser) {
+        return appUser;
+      }
+
+      if (appUserProvisionPromiseRef.current) {
+        return appUserProvisionPromiseRef.current;
+      }
+
+      const provisionPromise = (async () => {
+        const email = resolveEmail(sessionToUse.claims);
+        const username = resolveUsername(sessionToUse.claims);
+
+        if (!email || !username) {
+          throw new Error("The Keycloak token is missing email or username claims.");
+        }
+
+        const meResponse = await fetch(`${apiBaseUrl}/api/users/me`, {
+          headers: {
+            Authorization: `Bearer ${sessionToUse.accessToken}`,
+          },
+        });
+
+        if (meResponse.ok) {
+          const currentUser = (await meResponse.json()) as AppUser;
+          setAppUser(currentUser);
+          return currentUser;
+        }
+
+        if (meResponse.status !== 404) {
+          throw new Error(`Failed to load current app user (${meResponse.status}).`);
+        }
+
+        const createResponse = await fetch(`${apiBaseUrl}/api/users`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${sessionToUse.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, username, accountType }),
+        });
+
+        if (!createResponse.ok) {
+          throw new Error(`Failed to create app user (${createResponse.status}).`);
+        }
+
+        const createdUser = (await createResponse.json()) as AppUser;
+        setAppUser(createdUser);
+        return createdUser;
+      })();
+
+      appUserProvisionPromiseRef.current = provisionPromise;
+
+      try {
+        return await provisionPromise;
+      } finally {
+        appUserProvisionPromiseRef.current = null;
+      }
+    },
+    [appUser],
+  );
+
   const ensureAppUser = useCallback(async () => {
     if (!session) {
       setAppUser(null);
       return null;
     }
 
-    const meResponse = await apiFetch("/api/users/me");
-    if (meResponse.ok) {
-      const currentUser = (await meResponse.json()) as AppUser;
-      setAppUser(currentUser);
-      return currentUser;
-    }
-
-    if (meResponse.status !== 404) {
-      throw new Error(`Failed to load current app user (${meResponse.status}).`);
-    }
-
-    const email = resolveEmail(session.claims);
-    const username = resolveUsername(session.claims);
-
-    if (!email || !username) {
-      throw new Error("The Keycloak token is missing email or username claims.");
-    }
-
-    const createResponse = await apiFetch("/api/users", {
-      method: "POST",
-      body: JSON.stringify({ email, username, accountType: readStoredAccountType() }),
-    });
-
-    if (!createResponse.ok) {
-      throw new Error(`Failed to create app user (${createResponse.status}).`);
-    }
-
-    const createdUser = (await createResponse.json()) as AppUser;
-    setAppUser(createdUser);
-    return createdUser;
-  }, [apiFetch, session]);
+    return provisionAppUser(session, readStoredAccountType());
+  }, [provisionAppUser, session]);
 
   const login = useCallback(
-    async (username: string, password: string, accountType = readStoredAccountType()) => {
+    async (username: string, password: string, accountType: "INDIVIDUAL" | "ORGANIZATION" = readStoredAccountType()) => {
       setError("");
 
       const nextSession = createSession(
@@ -271,47 +307,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentSession(nextSession);
       window.sessionStorage.setItem(accountTypeStorageKey, accountType);
 
-      const email = resolveEmail(nextSession.claims);
-      const appUsername = resolveUsername(nextSession.claims);
-
-      if (!email || !appUsername) {
-        throw new Error("The Keycloak token is missing email or username claims.");
-      }
-
-      const meResponse = await fetch(`${apiBaseUrl}/api/users/me`, {
-        headers: {
-          Authorization: `Bearer ${nextSession.accessToken}`,
-        },
-      });
-
-      if (meResponse.ok) {
-        const currentUser = (await meResponse.json()) as AppUser;
-        setAppUser(currentUser);
-        return currentUser;
-      }
-
-      if (meResponse.status !== 404) {
-        throw new Error(`Failed to load current app user (${meResponse.status}).`);
-      }
-
-      const createResponse = await fetch(`${apiBaseUrl}/api/users`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${nextSession.accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, username: appUsername, accountType }),
-      });
-
-      if (!createResponse.ok) {
-        throw new Error(`Failed to create app user (${createResponse.status}).`);
-      }
-
-      const createdUser = (await createResponse.json()) as AppUser;
-      setAppUser(createdUser);
-      return createdUser;
+      return provisionAppUser(nextSession, accountType);
     },
-    [setCurrentSession],
+    [provisionAppUser, setCurrentSession],
   );
 
   const register = useCallback(
