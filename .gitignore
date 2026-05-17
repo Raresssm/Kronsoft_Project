@@ -24,6 +24,12 @@ target/
 hs_err_pid*
 replay_pid*
 
+# Node / Next.js
+node_modules/
+.next/
+AgoraCampusFrontEnd/node_modules/
+AgoraCampusFrontEnd/.next/
+
 # Spring Boot
 HELP.md
 application-local.yaml
