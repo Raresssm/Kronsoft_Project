@@ -1,6 +1,16 @@
-# AgoraCampus
+﻿# AgoraCampus
 
 Spring Boot API with PostgreSQL, Keycloak JWT auth, Flyway migrations, and a Next.js frontend.
+
+## Quick Start
+
+If you just want to launch everything locally, run these three steps from the repository root:
+
+1. `docker-compose up -d`
+2. `.\scripts\dev-backend.ps1`
+3. `cd AgoraCampusFrontEnd && npm.cmd install && npm.cmd run dev`
+
+Open the frontend at `http://localhost:3000` and use the seeded `admin` / `admin` or `demo` / `demo` accounts.
 
 ## Requirements
 
@@ -258,3 +268,11 @@ cd C:\path\to\Kronsoft_Project\AgoraCampusFrontEnd
 npm.cmd install
 npm.cmd run build
 ```
+
+## Troubleshooting
+
+- **Port already in use:** stop any existing process on `5432`, `8080`, `8090`, or `3000`, or change the mapped port in `.env`.
+- **Old Keycloak data:** if seeded users or clients are missing, run `docker-compose down -v` and start again.
+- **Frontend auth issues:** make sure the backend is started with `.\scripts\dev-backend.ps1`, not plain `mvn spring-boot:run`, if you rely on `.env` values.
+
+
