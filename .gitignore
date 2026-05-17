@@ -1,2 +1,19 @@
 .idea/
 *.iml
+
+# Local runtime files
+.env
+.env.*
+!.env.example
+logs/
+*.log
+AgoraCampus/logs/
+
+# Java / Maven
+target/
+
+# Node / Next.js
+node_modules/
+.next/
+AgoraCampusFrontEnd/node_modules/
+AgoraCampusFrontEnd/.next/
