@@ -34,6 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -197,6 +198,47 @@ class OpportunityServiceTest {
         assertEquals(2L, applicationCaptor.getValue().getApplicantUser().getId());
     }
 
+    @Test
+    void ownerCanAcceptApplication() {
+        OpportunityService service = service();
+        AppUser owner = user(1L);
+        Opportunity opportunity = opportunity(50L, owner);
+        OpportunityApplication application = application(99L, opportunity, user(2L), ApplicationStatus.PENDING);
+
+        when(appUserRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(profileRepository.findByAppUser_Id(1L)).thenReturn(Optional.of(organizationProfile(10L, owner).getProfile()));
+        when(opportunityApplicationRepository.findById(99L)).thenReturn(Optional.of(application));
+        when(opportunityApplicationRepository.save(any(OpportunityApplication.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.updateApplicationStatus(99L, 1L, new com.agora.agoracampus.opportunity.application.dto.request.UpdateOpportunityApplicationStatusRequest(ApplicationStatus.ACCEPTED));
+
+        ArgumentCaptor<OpportunityApplication> applicationCaptor = ArgumentCaptor.forClass(OpportunityApplication.class);
+        verify(opportunityApplicationRepository).save(applicationCaptor.capture());
+        assertEquals(ApplicationStatus.ACCEPTED, applicationCaptor.getValue().getStatus());
+    }
+
+    @Test
+    void applicationStatusCannotBeRevertedToPending() {
+        OpportunityService service = service();
+        AppUser owner = user(1L);
+        Opportunity opportunity = opportunity(50L, owner);
+        OpportunityApplication application = application(99L, opportunity, user(2L), ApplicationStatus.ACCEPTED);
+
+        when(appUserRepository.findById(1L)).thenReturn(Optional.of(owner));
+        when(profileRepository.findByAppUser_Id(1L)).thenReturn(Optional.of(organizationProfile(10L, owner).getProfile()));
+        when(opportunityApplicationRepository.findById(99L)).thenReturn(Optional.of(application));
+
+        assertThrows(
+                BadRequestException.class,
+                () -> service.updateApplicationStatus(
+                        99L,
+                        1L,
+                        new com.agora.agoracampus.opportunity.application.dto.request.UpdateOpportunityApplicationStatusRequest(ApplicationStatus.PENDING)
+                )
+        );
+        verify(opportunityApplicationRepository, never()).save(any(OpportunityApplication.class));
+    }
+
     private OpportunityService service() {
         return new OpportunityService(
                 appUserService,
@@ -252,6 +294,16 @@ class OpportunityServiceTest {
         opportunity.setDescription("Description");
         opportunity.setOrganizationProfile(organizationProfile(10L, postedByUser));
         return opportunity;
+    }
+
+    private OpportunityApplication application(Long id, Opportunity opportunity, AppUser applicant, ApplicationStatus status) {
+        OpportunityApplication application = new OpportunityApplication();
+        application.setId(id);
+        application.setOpportunity(opportunity);
+        application.setApplicantUser(applicant);
+        application.setStatus(status);
+        application.setAppliedAt(Instant.parse("2026-05-17T00:00:00Z"));
+        return application;
     }
 
     private OrganizationProfile organizationProfile(Long id, AppUser owner) {

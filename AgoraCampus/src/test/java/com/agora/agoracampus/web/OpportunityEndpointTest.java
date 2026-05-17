@@ -1,6 +1,7 @@
 package com.agora.agoracampus.web;
 
 import com.agora.agoracampus.opportunity.application.dto.request.CreateOpportunityApplicationRequest;
+import com.agora.agoracampus.opportunity.application.dto.request.UpdateOpportunityApplicationStatusRequest;
 import com.agora.agoracampus.opportunity.competition.controller.CompetitionController;
 import com.agora.agoracampus.opportunity.competition.service.CompetitionService;
 import com.agora.agoracampus.opportunity.core.controller.OpportunityController;
@@ -29,6 +30,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
@@ -108,12 +110,22 @@ class OpportunityEndpointTest {
                 .andExpect(status().isCreated());
         mockMvc.perform(get("/api/opportunities/10/applications").param("actingUserId", "1"))
                 .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/opportunities/applications/99/status")
+                .param("actingUserId", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "status": "ACCEPTED"
+                    }
+                    """))
+            .andExpect(status().isOk());
 
         verify(opportunityService).createOpportunity(any(CreateOpportunityRequest.class), eq(1L));
         verify(opportunityService).listOpportunities(OpportunityType.INTERNSHIP, "Cluj", 1L, 1L);
         verify(opportunityService).getOpportunity(10L, 1L);
         verify(opportunityService).applyToOpportunity(eq(10L), any(CreateOpportunityApplicationRequest.class), eq(2L));
         verify(opportunityService).getApplications(10L, 1L);
+        verify(opportunityService).updateApplicationStatus(eq(99L), eq(1L), any(UpdateOpportunityApplicationStatusRequest.class));
     }
 
     @Test
