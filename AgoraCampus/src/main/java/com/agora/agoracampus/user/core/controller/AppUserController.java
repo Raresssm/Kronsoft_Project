@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/users")
 public class AppUserController {
@@ -23,6 +25,11 @@ public class AppUserController {
         return appUserService.findCurrentUser()
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping
+    public List<AppUserResponse> listUsers() {
+        return appUserService.findAllUsers();
     }
 
     @PostMapping

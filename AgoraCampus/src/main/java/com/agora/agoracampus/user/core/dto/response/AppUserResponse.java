@@ -7,6 +7,11 @@ public record AppUserResponse(
         String keycloakId,
         String email,
         String username,
-        Instant createdAt
+        Instant createdAt,
+        String accountType,
+        Long profileId,
+        Long individualProfileId,
+        Long organizationProfileId,
+        String displayName
 ) {
 }

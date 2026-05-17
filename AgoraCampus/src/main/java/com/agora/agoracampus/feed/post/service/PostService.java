@@ -26,6 +26,12 @@ public class PostService {
     private final PostMapper postMapper;
     private final FeedPermissionService feedPermissionService;
 
+    public List<PostResponse> listAll() {
+        return postRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(postMapper::toResponse)
+                .toList();
+    }
+
     public List<PostResponse> listByAuthor(Long authorUserId) {
         if (!appUserRepository.existsById(authorUserId)) {
             throw new NotFoundException("User " + authorUserId + " was not found.");

@@ -17,6 +17,11 @@ export type AppUser = {
   email: string;
   username: string;
   createdAt: string;
+  accountType: "INDIVIDUAL" | "ORGANIZATION" | null;
+  profileId: number | null;
+  individualProfileId: number | null;
+  organizationProfileId: number | null;
+  displayName: string | null;
 };
 
 type TokenClaims = {
@@ -45,7 +50,7 @@ type AuthContextValue = {
   appUser: AppUser | null;
   token: string | undefined;
   error: string;
-  login: (username: string, password: string) => Promise<AppUser>;
+  login: (username: string, password: string, accountType?: "INDIVIDUAL" | "ORGANIZATION") => Promise<AppUser>;
   register: (email: string, password: string, accountType: "INDIVIDUAL" | "ORGANIZATION") => Promise<AppUser>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<string>;
@@ -55,6 +60,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const sessionStorageKey = "agora-campus-auth";
+const accountTypeStorageKey = "agora-campus-account-type";
 
 function tokenUrl() {
   return `${keycloakConfig.url}/realms/${keycloakConfig.realm}/protocol/openid-connect/token`;
@@ -136,6 +142,16 @@ function resolveEmail(claims: TokenClaims) {
 
 function resolveUsername(claims: TokenClaims) {
   return claims.preferred_username ?? claims.username ?? claims.email?.split("@")[0];
+}
+
+function readStoredAccountType() {
+  if (typeof window === "undefined") {
+    return "INDIVIDUAL";
+  }
+
+  return window.sessionStorage.getItem(accountTypeStorageKey) === "ORGANIZATION"
+    ? "ORGANIZATION"
+    : "INDIVIDUAL";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -224,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const createResponse = await apiFetch("/api/users", {
       method: "POST",
-      body: JSON.stringify({ email, username }),
+      body: JSON.stringify({ email, username, accountType: readStoredAccountType() }),
     });
 
     if (!createResponse.ok) {
@@ -237,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [apiFetch, session]);
 
   const login = useCallback(
-    async (username: string, password: string) => {
+    async (username: string, password: string, accountType = readStoredAccountType()) => {
       setError("");
 
       const nextSession = createSession(
@@ -253,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
 
       setCurrentSession(nextSession);
+      window.sessionStorage.setItem(accountTypeStorageKey, accountType);
 
       const email = resolveEmail(nextSession.claims);
       const appUsername = resolveUsername(nextSession.claims);
@@ -283,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           Authorization: `Bearer ${nextSession.accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, username: appUsername }),
+        body: JSON.stringify({ email, username: appUsername, accountType }),
       });
 
       if (!createResponse.ok) {
@@ -316,8 +333,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error((await readErrorMessage(response)) ?? `Account creation failed (${response.status}).`);
       }
 
-      window.sessionStorage.setItem("agora-campus-account-type", accountType);
-      return login(email, password);
+      window.sessionStorage.setItem(accountTypeStorageKey, accountType);
+      return login(email, password, accountType);
     },
     [login],
   );

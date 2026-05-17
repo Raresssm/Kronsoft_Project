@@ -1,262 +1,156 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/AppShell";
+import { CommentResponse, formatRelativeTime, PostResponse, ReactionResponse } from "../lib/api-types";
+import { useAuth } from "../lib/auth";
 
-type FeedFilter = "All" | "Posts" | "Events";
-type FeedKind = "Post" | "Event";
+type FeedFilter = "All" | "Posts";
 
-type FeedComment = {
-  id: string;
-  author: string;
-  time: string;
-  text: string;
-  mine?: boolean;
+type FeedItem = {
+  post: PostResponse;
+  comments: CommentResponse[];
+  reactions: ReactionResponse[];
 };
 
-type FeedPost = {
-  id: string;
-  author: string;
-  role: string;
-  avatar: string;
-  time: string;
-  kind: FeedKind;
-  body: string;
-  media?: string;
-  tags: string[];
-  likes: number;
-  comments: FeedComment[];
-  liked: boolean;
-  saved: boolean;
-};
-
-const filters: FeedFilter[] = ["All", "Posts", "Events"];
-const composerKinds: FeedKind[] = ["Post", "Event"];
-const quickPicks = ["Campus events", "Design review", "Study group", "Project share"];
-
-const initialPosts: FeedPost[] = [
-  {
-    id: "feed-1",
-    author: "Agora Campus",
-    role: "Community post",
-    avatar: "/logo.png",
-    time: "10 min ago",
-    kind: "Post",
-    body: "The student wall is live. Share one post or one event from this week.",
-    media: "/agora_campus.jpg",
-    tags: ["Campus", "Community"],
-    likes: 34,
-    comments: [
-      {
-        id: "c-1",
-        author: "Mara Dobre",
-        time: "8 min ago",
-        text: "Great start. I will add a project update later today.",
-      },
-    ],
-    liked: false,
-    saved: true,
-  },
-  {
-    id: "feed-2",
-    author: "Mara Dobre",
-    role: "Computer science student",
-    avatar: "/agora.jpg",
-    time: "35 min ago",
-    kind: "Post",
-    body: "I tightened the spacing and hierarchy on my dashboard. It scans much better on mobile now.",
-    media: "/agora.jpg",
-    tags: ["UI", "Responsive"],
-    likes: 19,
-    comments: [
-      {
-        id: "c-2",
-        author: "You",
-        time: "20 min ago",
-        text: "The spacing reads much cleaner now.",
-        mine: true,
-      },
-    ],
-    liked: true,
-    saved: false,
-  },
-  {
-    id: "feed-3",
-    author: "Design Guild",
-    role: "Campus event",
-    avatar: "/image.png",
-    time: "Yesterday",
-    kind: "Event",
-    body: "Portfolio review night is on Friday. Bring one project and one question.",
-    media: "/image.png",
-    tags: ["Portfolio", "Mentoring"],
-    likes: 48,
-    comments: [],
-    liked: false,
-    saved: false,
-  },
-  {
-    id: "feed-4",
-    author: "Alex Radu",
-    role: "Student developer",
-    avatar: "/agora_campus.jpg",
-    time: "Yesterday",
-    kind: "Post",
-    body: "For a class project, would you keep the state local until the UI settles?",
-    tags: ["State", "Architecture"],
-    likes: 12,
-    comments: [
-      {
-        id: "c-3",
-        author: "Ioana Pop",
-        time: "Yesterday",
-        text: "I would keep it local until the layout is stable.",
-      },
-    ],
-    liked: false,
-    saved: false,
-  },
-  {
-    id: "feed-5",
-    author: "Agora Campus",
-    role: "Event board",
-    avatar: "/logo.png",
-    time: "2 days ago",
-    kind: "Event",
-    body: "Open mic night is Friday at 19:00. Bring a short performance or just come to watch.",
-    tags: ["Music", "Community"],
-    likes: 21,
-    comments: [],
-    liked: false,
-    saved: false,
-  },
-];
+const filters: FeedFilter[] = ["All", "Posts"];
 
 export default function Feed() {
-  const [posts, setPosts] = useState<FeedPost[]>(initialPosts);
+  const { appUser, apiFetch } = useAuth();
+  const [items, setItems] = useState<FeedItem[]>([]);
+  const [users, setUsers] = useState<Record<number, string>>({});
   const [activeFilter, setActiveFilter] = useState<FeedFilter>("All");
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
-  const [draftKind, setDraftKind] = useState<FeedKind>("Post");
-  const [openCommentsPostId, setOpenCommentsPostId] = useState<string | null>(null);
+  const [openCommentsPostId, setOpenCommentsPostId] = useState<number | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadFeed = useCallback(async () => {
+    if (!appUser) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const [usersResponse, postsResponse] = await Promise.all([
+        apiFetch("/api/users"),
+        apiFetch("/api/posts"),
+      ]);
+
+      if (!usersResponse.ok) throw new Error(`Could not load users (${usersResponse.status}).`);
+      if (!postsResponse.ok) throw new Error(`Could not load posts (${postsResponse.status}).`);
+
+      const userList = (await usersResponse.json()) as Array<{ id: number; displayName?: string; username: string }>;
+      const userMap = Object.fromEntries(userList.map((user) => [user.id, user.displayName || user.username]));
+      const posts = (await postsResponse.json()) as PostResponse[];
+
+      const nextItems = await Promise.all(
+        posts.map(async (post) => {
+          const [commentsResponse, reactionsResponse] = await Promise.all([
+            apiFetch(`/api/posts/${post.postId}/comments`),
+            apiFetch(`/api/posts/${post.postId}/reactions`),
+          ]);
+
+          return {
+            post,
+            comments: commentsResponse.ok ? ((await commentsResponse.json()) as CommentResponse[]) : [],
+            reactions: reactionsResponse.ok ? ((await reactionsResponse.json()) as ReactionResponse[]) : [],
+          };
+        }),
+      );
+
+      setUsers(userMap);
+      setItems(nextItems);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Could not load feed.");
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFetch, appUser]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadFeed());
+  }, [loadFeed]);
 
   const normalizedQuery = query.trim().toLowerCase();
-
-  const visiblePosts = useMemo(() => {
-    return posts.filter((post) => {
-      const matchesFilter =
-        activeFilter === "All" ||
-        (activeFilter === "Posts" && post.kind === "Post") ||
-        (activeFilter === "Events" && post.kind === "Event");
-      const matchesSearch =
+  const visibleItems = useMemo(() => {
+    return items.filter(({ post }) => {
+      const author = users[post.authorUserId] ?? "Unknown";
+      return (
         !normalizedQuery ||
-        [post.author, post.role, post.body, post.kind, post.tags.join(" ")]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery);
-
-      return matchesFilter && matchesSearch;
+        [author, post.content].join(" ").toLowerCase().includes(normalizedQuery)
+      );
     });
-  }, [activeFilter, normalizedQuery, posts]);
+  }, [items, normalizedQuery, users]);
 
-  const eventHighlights = useMemo(
-    () => posts.filter((post) => post.kind === "Event").slice(0, 3),
-    [posts],
-  );
-
-  const handlePublish = (event: FormEvent<HTMLFormElement>) => {
+  const handlePublish = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!appUser) return;
 
-    const body = draft.trim();
-    if (!body) {
+    const content = draft.trim();
+    if (!content) return;
+
+    const response = await apiFetch(`/api/posts?actingUserId=${appUser.id}`, {
+      method: "POST",
+      body: JSON.stringify({ authorUserId: appUser.id, content, mediaUrl: null }),
+    });
+
+    if (!response.ok) {
+      setError(`Could not publish post (${response.status}).`);
       return;
     }
 
-    const nextPost: FeedPost = {
-      id: `feed-${Date.now()}`,
-      author: "You",
-      role: "Agora Campus member",
-      avatar: "/logo.png",
-      time: "Just now",
-      kind: draftKind,
-      body,
-      tags: body
-        .split(/\s+/)
-        .filter((word) => word.startsWith("#"))
-        .map((word) => word.slice(1))
-        .slice(0, 4),
-      likes: 0,
-      comments: [],
-      liked: false,
-      saved: false,
-    };
-
-    setPosts((currentPosts) => [nextPost, ...currentPosts]);
     setDraft("");
-    setDraftKind("Post");
+    await loadFeed();
   };
 
-  const toggleLike = (id: string) => {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === id
-          ? { ...post, liked: !post.liked, likes: post.liked ? post.likes - 1 : post.likes + 1 }
-          : post,
-      ),
-    );
-  };
+  const toggleLike = async (item: FeedItem) => {
+    if (!appUser) return;
 
-  const toggleSaved = (id: string) => {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) => (post.id === id ? { ...post, saved: !post.saved } : post)),
-    );
-  };
+    const myReaction = item.reactions.find((reaction) => reaction.authorUserId === appUser.id);
+    const path = `/api/posts/${item.post.postId}/reactions?authorUserId=${appUser.id}&actingUserId=${appUser.id}`;
+    const response = myReaction
+      ? await apiFetch(path, { method: "DELETE" })
+      : await apiFetch(`/api/posts/${item.post.postId}/reactions?actingUserId=${appUser.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ authorUserId: appUser.id, reactionType: "LIKE" }),
+        });
 
-  const toggleComments = (id: string) => {
-    setOpenCommentsPostId((currentId) => (currentId === id ? null : id));
-    setCommentDraft("");
-  };
-
-  const handleCommentSubmit = (event: FormEvent<HTMLFormElement>, id: string) => {
-    event.preventDefault();
-
-    const text = commentDraft.trim();
-    if (!text) {
+    if (!response.ok) {
+      setError(`Could not update reaction (${response.status}).`);
       return;
     }
 
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id === id
-          ? {
-              ...post,
-              comments: [
-                ...post.comments,
-                {
-                  id: `comment-${Date.now()}`,
-                  author: "You",
-                  time: "Just now",
-                  text,
-                  mine: true,
-                },
-              ],
-            }
-          : post,
-      ),
-    );
+    await loadFeed();
+  };
+
+  const handleCommentSubmit = async (event: FormEvent<HTMLFormElement>, postId: number) => {
+    event.preventDefault();
+    if (!appUser) return;
+
+    const content = commentDraft.trim();
+    if (!content) return;
+
+    const response = await apiFetch(`/api/posts/${postId}/comments?actingUserId=${appUser.id}`, {
+      method: "POST",
+      body: JSON.stringify({ authorUserId: appUser.id, content }),
+    });
+
+    if (!response.ok) {
+      setError(`Could not add comment (${response.status}).`);
+      return;
+    }
 
     setCommentDraft("");
+    await loadFeed();
   };
 
   return (
-    <AppShell
-      searchValue={query}
-      onSearchChange={setQuery}
-      searchPlaceholder="Search posts or events"
-    >
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)_260px]">
+    <AppShell searchValue={query} onSearchChange={setQuery} searchPlaceholder="Search posts">
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <section className="overflow-hidden rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl">
             <div className="relative h-24">
@@ -265,46 +159,21 @@ export default function Feed() {
             </div>
             <div className="px-4 pb-4">
               <div className="relative -mt-9 h-18 w-18 overflow-hidden rounded-full border-4 border-white shadow-xl">
-                <Image
-                  src="/logo.png"
-                  alt="Agora Campus"
-                  fill
-                  sizes="72px"
-                  className="object-contain bg-white p-2"
-                />
+                <Image src="/logo.png" alt="Agora Campus" fill sizes="72px" className="object-contain bg-white p-2" />
               </div>
               <h2 className="mt-3 text-lg font-semibold text-[#143b5d]">Agora Campus</h2>
-              <p className="text-sm text-slate-700">A campus feed for posts and events only.</p>
+              <p className="text-sm text-slate-700">A campus feed backed by the API.</p>
               <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-white/40 pt-4 text-center">
-                <Stat label="Posts" value={posts.filter((post) => post.kind === "Post").length} />
-                <Stat label="Events" value={posts.filter((post) => post.kind === "Event").length} />
-                <Stat label="Saved" value={posts.filter((post) => post.saved).length} />
+                <Stat label="Posts" value={items.length} />
+                <Stat label="Likes" value={items.reduce((sum, item) => sum + item.reactions.length, 0)} />
+                <Stat label="Comments" value={items.reduce((sum, item) => sum + item.comments.length, 0)} />
               </dl>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-white/20 bg-white/80 p-4 shadow-2xl backdrop-blur-xl">
-            <h3 className="text-sm font-semibold text-[#143b5d]">Quick picks</h3>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {quickPicks.map((pick) => (
-                <button
-                  key={pick}
-                  type="button"
-                  onClick={() => setQuery(pick)}
-                  className="rounded-full bg-[#143b5d]/10 px-3 py-1.5 text-xs font-semibold text-[#143b5d] hover:bg-[#143b5d]/20"
-                >
-                  #{pick}
-                </button>
-              ))}
             </div>
           </section>
         </aside>
 
         <section className="min-w-0 space-y-4">
-          <form
-            onSubmit={handlePublish}
-            className="overflow-hidden rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl"
-          >
+          <form onSubmit={handlePublish} className="overflow-hidden rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl">
             <div className="flex items-start gap-3 p-4 sm:p-5">
               <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/50 bg-white">
                 <Image src="/logo.png" alt="Your avatar" fill sizes="48px" className="object-contain p-1" />
@@ -313,26 +182,10 @@ export default function Feed() {
                 <textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Share a post or event..."
+                  placeholder="Share a post..."
                   className="min-h-24 w-full resize-none rounded-2xl border border-white/40 bg-white/80 px-4 py-3 text-sm text-slate-800 outline-none focus:border-[#143b5d] focus:ring-4 focus:ring-[#143b5d]/10"
                 />
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {composerKinds.map((kind) => (
-                    <button
-                      key={kind}
-                      type="button"
-                      onClick={() => setDraftKind(kind)}
-                      className={[
-                        "rounded-full px-3 py-1.5 text-xs font-semibold transition",
-                        draftKind === kind
-                          ? "bg-[#143b5d] text-white"
-                          : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
-                      ].join(" ")}
-                    >
-                      {kind}
-                    </button>
-                  ))}
+                <div className="mt-3 flex items-center gap-2">
                   <button
                     type="submit"
                     disabled={!draft.trim()}
@@ -353,123 +206,80 @@ export default function Feed() {
                 onClick={() => setActiveFilter(filter)}
                 className={[
                   "rounded-full px-4 py-2 text-sm font-semibold transition",
-                  activeFilter === filter
-                    ? "bg-[#143b5d] text-white"
-                    : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
+                  activeFilter === filter ? "bg-[#143b5d] text-white" : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
                 ].join(" ")}
               >
                 {filter}
               </button>
             ))}
             <span className="ml-auto text-xs font-medium text-slate-600">
-              {visiblePosts.length} items visible
+              {loading ? "Loading..." : `${visibleItems.length} items visible`}
             </span>
           </div>
 
+          {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+
           <div className="space-y-4">
-            {visiblePosts.map((post) => {
-              const commentsOpen = openCommentsPostId === post.id;
+            {visibleItems.map((item) => {
+              const commentsOpen = openCommentsPostId === item.post.postId;
+              const author = users[item.post.authorUserId] ?? "Unknown user";
+              const liked = Boolean(appUser && item.reactions.some((reaction) => reaction.authorUserId === appUser.id));
 
               return (
-                <article
-                  key={post.id}
-                  className="overflow-hidden rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl"
-                >
-                  {post.media && (
-                    <div className="relative h-52">
-                      <Image
-                        src={post.media}
-                        alt=""
-                        fill
-                        sizes="(max-width: 1024px) 100vw, 700px"
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/15 to-transparent" />
-                    </div>
-                  )}
-
+                <article key={item.post.postId} className="overflow-hidden rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl">
                   <div className="p-4 sm:p-5">
                     <header className="flex min-w-0 items-start gap-3">
                       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/50 bg-white">
-                        <Image src={post.avatar} alt={post.author} fill sizes="48px" className="object-cover" />
+                        <Image src="/logo.png" alt={author} fill sizes="48px" className="object-contain p-1" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="truncate font-semibold text-[#143b5d]">{post.author}</h3>
-                          <span className="rounded-full bg-[#143b5d]/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#143b5d]">
-                            {post.kind}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-700">{post.role}</p>
-                        <p className="text-xs text-slate-500">{post.time}</p>
+                        <h3 className="truncate font-semibold text-[#143b5d]">{author}</h3>
+                        <p className="text-sm text-slate-700">Agora Campus member</p>
+                        <p className="text-xs text-slate-500">{formatRelativeTime(item.post.createdAt)}</p>
                       </div>
                     </header>
 
-                    <p className="mt-4 text-sm leading-6 text-slate-800">{post.body}</p>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {post.tags.map((tag) => (
-                        <span
-                          key={`${post.id}-${tag}`}
-                          className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-800">{item.post.content}</p>
 
                     <footer className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/40 pt-3">
                       <button
                         type="button"
-                        onClick={() => toggleLike(post.id)}
+                        onClick={() => toggleLike(item)}
                         className={[
                           "rounded-full px-4 py-2 text-sm font-semibold transition",
-                          post.liked
-                            ? "bg-[#143b5d] text-white"
-                            : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
+                          liked ? "bg-[#143b5d] text-white" : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
                         ].join(" ")}
                       >
-                        {post.likes} Likes
+                        {item.reactions.length} Likes
                       </button>
                       <button
                         type="button"
-                        onClick={() => toggleComments(post.id)}
+                        onClick={() => {
+                          setOpenCommentsPostId((currentId) => (currentId === item.post.postId ? null : item.post.postId));
+                          setCommentDraft("");
+                        }}
                         className={[
                           "rounded-full px-4 py-2 text-sm font-semibold transition",
-                          commentsOpen
-                            ? "bg-[#143b5d] text-white"
-                            : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
+                          commentsOpen ? "bg-[#143b5d] text-white" : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
                         ].join(" ")}
                       >
-                        {post.comments.length} Comments
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleSaved(post.id)}
-                        className={[
-                          "rounded-full px-4 py-2 text-sm font-semibold transition",
-                          post.saved
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
-                        ].join(" ")}
-                      >
-                        {post.saved ? "Saved" : "Save"}
+                        {item.comments.length} Comments
                       </button>
                     </footer>
 
                     {commentsOpen && (
                       <section className="mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4">
                         <div className="space-y-3">
-                          {post.comments.length > 0 ? (
-                            post.comments.map((comment) => (
-                              <div key={comment.id} className="rounded-xl bg-slate-50 px-3 py-2">
+                          {item.comments.length > 0 ? (
+                            item.comments.map((comment) => (
+                              <div key={comment.commentId} className="rounded-xl bg-slate-50 px-3 py-2">
                                 <div className="flex items-center justify-between gap-2">
                                   <p className="text-sm font-semibold text-slate-700">
-                                    {comment.author}
+                                    {users[comment.authorUserId] ?? "Unknown user"}
                                   </p>
-                                  <span className="text-[11px] text-slate-500">{comment.time}</span>
+                                  <span className="text-[11px] text-slate-500">{formatRelativeTime(comment.createdAt)}</span>
                                 </div>
-                                <p className="mt-1 text-sm text-slate-700">{comment.text}</p>
+                                <p className="mt-1 text-sm text-slate-700">{comment.content}</p>
                               </div>
                             ))
                           ) : (
@@ -477,10 +287,7 @@ export default function Feed() {
                           )}
                         </div>
 
-                        <form
-                          className="mt-4 flex flex-col gap-2 sm:flex-row"
-                          onSubmit={(event) => handleCommentSubmit(event, post.id)}
-                        >
+                        <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={(event) => handleCommentSubmit(event, item.post.postId)}>
                           <input
                             type="text"
                             value={commentDraft}
@@ -503,34 +310,14 @@ export default function Feed() {
               );
             })}
 
-            {visiblePosts.length === 0 && (
+            {!loading && visibleItems.length === 0 && (
               <section className="rounded-3xl border border-dashed border-white/30 bg-white/70 px-6 py-12 text-center shadow-2xl backdrop-blur-xl">
                 <h2 className="font-semibold text-[#143b5d]">No posts found</h2>
-                <p className="mt-1 text-sm text-slate-600">Try another search term or category.</p>
+                <p className="mt-1 text-sm text-slate-600">Create the first post or try another search term.</p>
               </section>
             )}
           </div>
         </section>
-
-        <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <section className="rounded-3xl border border-white/20 bg-white/80 p-4 shadow-2xl backdrop-blur-xl">
-            <h3 className="text-sm font-semibold text-[#143b5d]">Events</h3>
-            <div className="mt-3 space-y-3 text-sm">
-              {eventHighlights.length > 0 ? (
-                eventHighlights.map((event) => (
-                  <div key={event.id} className="border-b border-white/50 pb-3 last:border-0 last:pb-0">
-                    <p className="font-medium text-slate-800">{event.body}</p>
-                    <p className="text-slate-500">
-                      {event.author} · {event.time}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-slate-600">No events yet.</p>
-              )}
-            </div>
-          </section>
-        </aside>
       </div>
     </AppShell>
   );

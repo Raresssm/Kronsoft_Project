@@ -96,9 +96,10 @@ public class OpportunityService {
     public OpportunityResponse createOpportunity(CreateOpportunityRequest request, Long actingUserId) {
         OpportunityActorRole actorRole = resolveActorRole(actingUserId);
 
-        // Doar ORGANIZATION sau ADMIN pot crea oportunitati
-        if (actorRole == OpportunityActorRole.INDIVIDUAL) {
-            throw new BadRequestException("Only ORGANIZATION users or admins can create opportunities.");
+        if (actorRole == OpportunityActorRole.INDIVIDUAL
+                && request.type() != OpportunityType.STUDENT_PROJECT
+                && request.type() != OpportunityType.COMPETITION) {
+            throw new BadRequestException("Individual users can create only student project or competition opportunities.");
         }
 
         AppUser postedByUser = appUserService.getRequiredEntity(request.postedByUserId());
@@ -165,6 +166,17 @@ public class OpportunityService {
         requireAdminOrOwner(actorRole, actingUserId, opportunity.getPostedByUser().getId());
 
         return opportunityApplicationRepository.findByOpportunityIdOrderByAppliedAtDesc(opportunityId)
+                .stream()
+                .map(opportunityApplicationMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public List<OpportunityApplicationResponse> getApplicationsByApplicant(Long applicantUserId, Long actingUserId) {
+        OpportunityActorRole actorRole = resolveActorRole(actingUserId);
+        requireAdminOrOwner(actorRole, actingUserId, applicantUserId);
+
+        return opportunityApplicationRepository.findByApplicantUser_IdOrderByAppliedAtDesc(applicantUserId)
                 .stream()
                 .map(opportunityApplicationMapper::toResponse)
                 .toList();
@@ -245,8 +257,8 @@ public class OpportunityService {
             Long actingUserId,
             Long ownerId
     ) {
-        if (actorRole == OpportunityActorRole.INDIVIDUAL && !actingUserId.equals(ownerId)) {
-            throw new BadRequestException("Only the opportunity owner or admins can view applications.");
+        if (actorRole != OpportunityActorRole.ADMIN && !actingUserId.equals(ownerId)) {
+            throw new BadRequestException("Only the owner or admins can view these applications.");
         }
     }
 

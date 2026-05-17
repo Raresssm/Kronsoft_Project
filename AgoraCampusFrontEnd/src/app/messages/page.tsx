@@ -1,117 +1,102 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/AppShell";
-
-type Thread = {
-  id: number;
-  name: string;
-  role: string;
-  preview: string;
-  unread: number;
-  avatar: string;
-};
-
-type ChatMessage = {
-  id: number;
-  fromMe: boolean;
-  text: string;
-  time: string;
-};
-
-const threads: Thread[] = [
-  {
-    id: 1,
-    name: "Alex Radu",
-    role: "Software Engineer",
-    preview: "Perfect, let's sync tomorrow at 10.",
-    unread: 2,
-    avatar: "/agora.jpg",
-  },
-  {
-    id: 2,
-    name: "CodeWave SRL",
-    role: "Organization",
-    preview: "We reviewed your profile and want to connect.",
-    unread: 0,
-    avatar: "/logo.png",
-  },
-  {
-    id: 3,
-    name: "Ioana Pop",
-    role: "UX Designer",
-    preview: "Can you share the API docs for messaging?",
-    unread: 1,
-    avatar: "/agora_campus.jpg",
-  },
-];
-
-const initialMessages: Record<number, ChatMessage[]> = {
-  1: [
-    { id: 1, fromMe: false, text: "Hey! Did you finish the backend endpoint?", time: "09:14" },
-    { id: 2, fromMe: true, text: "Yes, it's ready. I also added validation.", time: "09:17" },
-    { id: 3, fromMe: false, text: "Perfect, let's sync tomorrow at 10.", time: "09:20" },
-  ],
-  2: [
-    { id: 1, fromMe: false, text: "Hello! Thanks for applying to our internship.", time: "Yesterday" },
-    { id: 2, fromMe: true, text: "Thank you. Happy to discuss details.", time: "Yesterday" },
-  ],
-  3: [
-    { id: 1, fromMe: false, text: "Can you share the API docs for messaging?", time: "08:55" },
-    { id: 2, fromMe: true, text: "Sure, I'll send the OpenAPI link now.", time: "09:02" },
-  ],
-};
+import { AppUserSummary, formatRelativeTime, MessageResponse } from "../lib/api-types";
+import { useAuth } from "../lib/auth";
 
 export default function Messages() {
-  const [activeThreadId, setActiveThreadId] = useState<number>(threads[0].id);
+  const { appUser, apiFetch } = useAuth();
+  const [users, setUsers] = useState<AppUserSummary[]>([]);
+  const [activeUserId, setActiveUserId] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
-  const [messages, setMessages] = useState<Record<number, ChatMessage[]>>(initialMessages);
+  const [messages, setMessages] = useState<MessageResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const loadUsers = useCallback(async () => {
+    if (!appUser) return;
 
-  const visibleThreads = useMemo(() => {
-    if (!normalizedQuery) {
-      return threads;
-    }
-
-    return threads.filter((thread) =>
-      [thread.name, thread.role, thread.preview].join(" ").toLowerCase().includes(normalizedQuery),
-    );
-  }, [normalizedQuery]);
-
-  const activeThread = useMemo(
-    () => threads.find((thread) => thread.id === activeThreadId) ?? threads[0],
-    [activeThreadId],
-  );
-
-  const activeMessages = messages[activeThread.id] ?? [];
-
-  const handleSend = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const text = draft.trim();
-    if (!text) {
+    setError("");
+    const response = await apiFetch("/api/users");
+    if (!response.ok) {
+      setError(`Could not load users (${response.status}).`);
       return;
     }
 
-    setMessages((currentMessages) => ({
-      ...currentMessages,
-      [activeThread.id]: [
-        ...(currentMessages[activeThread.id] ?? []),
-        { id: Date.now(), fromMe: true, text, time: "Now" },
-      ],
-    }));
+    const nextUsers = ((await response.json()) as AppUserSummary[]).filter((user) => user.id !== appUser.id);
+    setUsers(nextUsers);
+
+    const requestedUserId = Number(new URLSearchParams(window.location.search).get("userId"));
+    if (requestedUserId && nextUsers.some((user) => user.id === requestedUserId)) {
+      setActiveUserId(requestedUserId);
+    } else if (!activeUserId && nextUsers.length > 0) {
+      setActiveUserId(nextUsers[0].id);
+    }
+  }, [activeUserId, apiFetch, appUser]);
+
+  const loadConversation = useCallback(async () => {
+    if (!appUser || !activeUserId) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await apiFetch(
+        `/api/messages/between?userIdA=${appUser.id}&userIdB=${activeUserId}&actingUserId=${appUser.id}`,
+      );
+      if (!response.ok) throw new Error(`Could not load conversation (${response.status}).`);
+      setMessages((await response.json()) as MessageResponse[]);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Could not load conversation.");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeUserId, apiFetch, appUser]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadUsers());
+  }, [loadUsers]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadConversation());
+  }, [loadConversation]);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleUsers = useMemo(() => {
+    if (!normalizedQuery) return users;
+    return users.filter((user) =>
+      [user.displayName, user.username, user.email, user.accountType].join(" ").toLowerCase().includes(normalizedQuery),
+    );
+  }, [normalizedQuery, users]);
+
+  const activeUser = users.find((user) => user.id === activeUserId) ?? null;
+
+  const handleSend = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!appUser || !activeUserId) return;
+
+    const content = draft.trim();
+    if (!content) return;
+
+    const response = await apiFetch(`/api/messages?actingUserId=${appUser.id}`, {
+      method: "POST",
+      body: JSON.stringify({ senderUserId: appUser.id, receiverUserId: activeUserId, content }),
+    });
+
+    if (!response.ok) {
+      setError(`Could not send message (${response.status}).`);
+      return;
+    }
+
     setDraft("");
+    await loadConversation();
   };
 
   return (
-    <AppShell
-      searchValue={query}
-      onSearchChange={setQuery}
-      searchPlaceholder="Search conversations"
-    >
+    <AppShell searchValue={query} onSearchChange={setQuery} searchPlaceholder="Search conversations">
       <div className="grid min-h-[calc(100vh-120px)] gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="flex min-h-[360px] flex-col overflow-hidden rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl lg:max-h-[calc(100vh-120px)]">
           <div className="border-b border-slate-200 p-4">
@@ -120,30 +105,23 @@ export default function Messages() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {visibleThreads.map((thread) => (
+            {visibleUsers.map((user) => (
               <button
-                key={thread.id}
+                key={user.id}
                 type="button"
-                onClick={() => setActiveThreadId(thread.id)}
+                onClick={() => setActiveUserId(user.id)}
                 className={[
                   "flex w-full items-start gap-3 border-b border-slate-200 p-4 text-left transition",
-                  activeThreadId === thread.id ? "bg-[#143b5d]/10" : "hover:bg-white",
+                  activeUserId === user.id ? "bg-[#143b5d]/10" : "hover:bg-white",
                 ].join(" ")}
               >
                 <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-white">
-                  <Image src={thread.avatar} alt={thread.name} fill sizes="48px" className="object-cover" />
+                  <Image src="/logo.png" alt={user.displayName ?? user.username} fill sizes="48px" className="object-contain p-2" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-[#143b5d]">{thread.name}</p>
-                    {thread.unread > 0 && (
-                      <span className="rounded-full bg-[#143b5d] px-2 py-0.5 text-[10px] font-bold text-white">
-                        {thread.unread}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">{thread.role}</p>
-                  <p className="mt-1 truncate text-sm text-slate-700">{thread.preview}</p>
+                  <p className="truncate text-sm font-semibold text-[#143b5d]">{user.displayName ?? user.username}</p>
+                  <p className="text-xs text-slate-500">{user.accountType === "ORGANIZATION" ? "Organization" : "Individual"}</p>
+                  <p className="mt-1 truncate text-sm text-slate-700">{user.email}</p>
                 </div>
               </button>
             ))}
@@ -154,37 +132,40 @@ export default function Messages() {
           <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-white">
-                <Image src={activeThread.avatar} alt={activeThread.name} fill sizes="48px" className="object-cover" />
+                <Image src="/logo.png" alt={activeUser?.displayName ?? "Conversation"} fill sizes="48px" className="object-contain p-2" />
               </div>
               <div className="min-w-0">
-                <h2 className="truncate font-semibold text-[#143b5d]">{activeThread.name}</h2>
-                <p className="truncate text-sm text-slate-600">{activeThread.role}</p>
+                <h2 className="truncate font-semibold text-[#143b5d]">{activeUser?.displayName ?? "Select a conversation"}</h2>
+                <p className="truncate text-sm text-slate-600">{activeUser?.email ?? "Choose a user to start messaging"}</p>
               </div>
             </div>
             <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-              Online
+              API
             </span>
           </header>
 
+          {error && <p className="m-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+
           <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
-            {activeMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.fromMe ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={[
+            {loading && activeUser ? <p className="text-sm text-slate-500">Loading conversation...</p> : null}
+            {!loading && messages.length === 0 ? <p className="text-sm text-slate-500">No messages yet.</p> : null}
+            {messages.map((message) => {
+              const fromMe = message.senderUserId === appUser?.id;
+              return (
+                <div key={message.messageId} className={`flex ${fromMe ? "justify-end" : "justify-start"}`}>
+                  <div className={[
                     "max-w-[min(78%,540px)] rounded-2xl px-4 py-2 shadow-sm",
-                    message.fromMe ? "bg-[#143b5d] text-white" : "bg-slate-100 text-slate-800",
+                    fromMe ? "bg-[#143b5d] text-white" : "bg-slate-100 text-slate-800",
                   ].join(" ")}
-                >
-                  <p className="text-sm leading-6">{message.text}</p>
-                  <p className={`mt-1 text-[10px] ${message.fromMe ? "text-blue-100" : "text-slate-500"}`}>
-                    {message.time}
-                  </p>
+                  >
+                    <p className="text-sm leading-6">{message.content}</p>
+                    <p className={`mt-1 text-[10px] ${fromMe ? "text-blue-100" : "text-slate-500"}`}>
+                      {formatRelativeTime(message.sentAt)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <form onSubmit={handleSend} className="flex gap-3 border-t border-slate-200 bg-white p-4">
@@ -200,7 +181,7 @@ export default function Messages() {
             </label>
             <button
               type="submit"
-              disabled={!draft.trim()}
+              disabled={!draft.trim() || !activeUser}
               className="h-11 rounded-2xl bg-[#143b5d] px-5 text-sm font-semibold text-white transition hover:bg-[#1d5485] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Send

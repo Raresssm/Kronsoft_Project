@@ -19,6 +19,11 @@ public class PostController {
 
     private final PostService postService;
 
+    @GetMapping
+    public List<PostResponse> listAll() {
+        return postService.listAll();
+    }
+
     @GetMapping("/users/{authorUserId}")
     public List<PostResponse> listByAuthor(@PathVariable Long authorUserId) {
         return postService.listByAuthor(authorUserId);

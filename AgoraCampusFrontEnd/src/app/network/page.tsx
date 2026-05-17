@@ -2,94 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/AppShell";
+import { AppUserSummary, ConnectionResponse } from "../lib/api-types";
+import { useAuth } from "../lib/auth";
 
 type NetworkTab = "requests" | "connections" | "discover";
-type Relationship = "none" | "pending" | "connected";
-
-type NetworkProfile = {
-  id: number;
-  name: string;
-  headline: string;
-  company: string;
-  location: string;
-  mutualConnections: number;
-  skills: string[];
-  avatar: string;
-  relationship: Relationship;
-};
-
-const profiles: NetworkProfile[] = [
-  {
-    id: 1,
-    name: "Andrei Ionescu",
-    headline: "Frontend Engineer",
-    company: "PixelForge",
-    location: "Bucharest",
-    mutualConnections: 9,
-    skills: ["React", "TypeScript", "Tailwind"],
-    avatar: "/agora.jpg",
-    relationship: "none",
-  },
-  {
-    id: 2,
-    name: "Mara Dobre",
-    headline: "Backend Developer",
-    company: "CodeWave SRL",
-    location: "Cluj-Napoca",
-    mutualConnections: 6,
-    skills: ["Java", "Spring Boot", "PostgreSQL"],
-    avatar: "/agora_campus.jpg",
-    relationship: "pending",
-  },
-  {
-    id: 3,
-    name: "Radu Matei",
-    headline: "Product Designer",
-    company: "NovaLab",
-    location: "Iasi",
-    mutualConnections: 12,
-    skills: ["Figma", "UX Research", "Design Systems"],
-    avatar: "/image.png",
-    relationship: "connected",
-  },
-  {
-    id: 4,
-    name: "Elena Popescu",
-    headline: "QA Engineer",
-    company: "QualityGrid",
-    location: "Timisoara",
-    mutualConnections: 4,
-    skills: ["Playwright", "Cypress", "API Testing"],
-    avatar: "/agora.jpg",
-    relationship: "none",
-  },
-  {
-    id: 5,
-    name: "Victor Stan",
-    headline: "DevOps Engineer",
-    company: "InfraPoint",
-    location: "Bucharest",
-    mutualConnections: 3,
-    skills: ["Docker", "Kubernetes", "CI/CD"],
-    avatar: "/agora_campus.jpg",
-    relationship: "connected",
-  },
-  {
-    id: 6,
-    name: "Cristina Barbu",
-    headline: "Data Analyst",
-    company: "Insightly",
-    location: "Sibiu",
-    mutualConnections: 7,
-    skills: ["SQL", "Python", "Power BI"],
-    avatar: "/image.png",
-    relationship: "none",
-  },
-];
-
-const requestSourceIds = [4, 6];
+type Relationship = "none" | "pending" | "connected" | "incoming";
 
 const tabLabels: Record<NetworkTab, string> = {
   requests: "Requests",
@@ -97,66 +16,136 @@ const tabLabels: Record<NetworkTab, string> = {
   discover: "Discover",
 };
 
-const initialRelationships: Record<number, Relationship> = profiles.reduce(
-  (result, profile) => ({ ...result, [profile.id]: profile.relationship }),
-  {},
-);
-
 export default function Network() {
-  const [activeTab, setActiveTab] = useState<NetworkTab>("requests");
+  const { appUser, apiFetch } = useAuth();
+  const [activeTab, setActiveTab] = useState<NetworkTab>("discover");
   const [query, setQuery] = useState("");
-  const [relationships, setRelationships] =
-    useState<Record<number, Relationship>>(initialRelationships);
-  const [incomingRequestIds, setIncomingRequestIds] = useState<number[]>(requestSourceIds);
+  const [users, setUsers] = useState<AppUserSummary[]>([]);
+  const [connections, setConnections] = useState<ConnectionResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadNetwork = useCallback(async () => {
+    if (!appUser) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const [usersResponse, connectionsResponse] = await Promise.all([
+        apiFetch("/api/users"),
+        apiFetch(`/api/connections/users/${appUser.id}?actingUserId=${appUser.id}`),
+      ]);
+
+      if (!usersResponse.ok) throw new Error(`Could not load users (${usersResponse.status}).`);
+      if (!connectionsResponse.ok) throw new Error(`Could not load connections (${connectionsResponse.status}).`);
+
+      setUsers(((await usersResponse.json()) as AppUserSummary[]).filter((user) => user.id !== appUser.id));
+      setConnections((await connectionsResponse.json()) as ConnectionResponse[]);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Could not load network.");
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFetch, appUser]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadNetwork());
+  }, [loadNetwork]);
+
+  const connectionFor = useCallback(
+    (userId: number) =>
+      connections.find(
+        (connection) =>
+          connection.requesterUserId === userId ||
+          connection.receiverUserId === userId,
+      ),
+    [connections],
+  );
+
+  const relationshipFor = useCallback(
+    (userId: number): Relationship => {
+      const connection = connectionFor(userId);
+      if (!connection) return "none";
+      if (connection.status === "ACCEPTED") return "connected";
+      if (connection.status === "PENDING" && connection.receiverUserId === appUser?.id) return "incoming";
+      if (connection.status === "PENDING") return "pending";
+      return "none";
+    },
+    [appUser?.id, connectionFor],
+  );
 
   const normalizedQuery = query.trim().toLowerCase();
-
-  const visibleProfiles = useMemo(() => {
-    return profiles.filter((profile) => {
-      const relationship = relationships[profile.id];
+  const visibleUsers = useMemo(() => {
+    return users.filter((user) => {
+      const relationship = relationshipFor(user.id);
       const matchesTab =
         activeTab === "requests"
-          ? incomingRequestIds.includes(profile.id)
+          ? relationship === "incoming"
           : activeTab === "connections"
             ? relationship === "connected"
             : relationship !== "connected";
       const matchesSearch =
         !normalizedQuery ||
-        [profile.name, profile.headline, profile.company, profile.location, profile.skills.join(" ")]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery);
+        [user.displayName, user.username, user.email, user.accountType].join(" ").toLowerCase().includes(normalizedQuery);
 
       return matchesTab && matchesSearch;
     });
-  }, [activeTab, incomingRequestIds, normalizedQuery, relationships]);
+  }, [activeTab, normalizedQuery, relationshipFor, users]);
 
-  const totalConnections = profiles.filter((profile) => relationships[profile.id] === "connected").length;
-  const totalPending = profiles.filter((profile) => relationships[profile.id] === "pending").length;
+  const createConnection = async (receiverUserId: number) => {
+    if (!appUser) return;
 
-  const updateRelationship = (id: number, relationship: Relationship) => {
-    setRelationships((currentRelationships) => ({
-      ...currentRelationships,
-      [id]: relationship,
-    }));
+    const response = await apiFetch(`/api/connections?actingUserId=${appUser.id}`, {
+      method: "POST",
+      body: JSON.stringify({ requesterUserId: appUser.id, receiverUserId }),
+    });
+
+    if (!response.ok) {
+      setError(`Could not send connection request (${response.status}).`);
+      return;
+    }
+
+    await loadNetwork();
   };
 
-  const acceptRequest = (id: number) => {
-    updateRelationship(id, "connected");
-    setIncomingRequestIds((currentIds) => currentIds.filter((requestId) => requestId !== id));
+  const updateConnection = async (connectionId: number, status: "ACCEPTED" | "REJECTED") => {
+    if (!appUser) return;
+
+    const response = await apiFetch(`/api/connections/${connectionId}/status?actingUserId=${appUser.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+
+    if (!response.ok) {
+      setError(`Could not update connection (${response.status}).`);
+      return;
+    }
+
+    await loadNetwork();
   };
 
-  const ignoreRequest = (id: number) => {
-    updateRelationship(id, "none");
-    setIncomingRequestIds((currentIds) => currentIds.filter((requestId) => requestId !== id));
+  const deleteConnection = async (connectionId: number) => {
+    if (!appUser) return;
+
+    const response = await apiFetch(`/api/connections/${connectionId}?actingUserId=${appUser.id}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      setError(`Could not remove connection (${response.status}).`);
+      return;
+    }
+
+    await loadNetwork();
   };
+
+  const totalConnections = connections.filter((connection) => connection.status === "ACCEPTED").length;
+  const totalPending = connections.filter((connection) => connection.status === "PENDING" && connection.requesterUserId === appUser?.id).length;
+  const totalRequests = connections.filter((connection) => connection.status === "PENDING" && connection.receiverUserId === appUser?.id).length;
 
   return (
-    <AppShell
-      searchValue={query}
-      onSearchChange={setQuery}
-      searchPlaceholder="Search people, skills, company"
-    >
+    <AppShell searchValue={query} onSearchChange={setQuery} searchPlaceholder="Search people, skills, company">
       <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <section className="rounded-3xl border border-white/20 bg-white/80 p-4 shadow-2xl backdrop-blur-xl">
@@ -164,18 +153,9 @@ export default function Network() {
             <p className="text-sm text-slate-700">Manage professional relationships.</p>
 
             <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-xl font-semibold text-[#143b5d]">{totalConnections}</p>
-                <p className="text-xs text-slate-500">Connected</p>
-              </div>
-              <div>
-                <p className="text-xl font-semibold text-[#143b5d]">{totalPending}</p>
-                <p className="text-xs text-slate-500">Pending</p>
-              </div>
-              <div>
-                <p className="text-xl font-semibold text-[#143b5d]">{incomingRequestIds.length}</p>
-                <p className="text-xs text-slate-500">Requests</p>
-              </div>
+              <Stat label="Connected" value={totalConnections} />
+              <Stat label="Pending" value={totalPending} />
+              <Stat label="Requests" value={totalRequests} />
             </div>
           </section>
 
@@ -187,10 +167,8 @@ export default function Network() {
                   type="button"
                   onClick={() => setActiveTab(tab)}
                   className={[
-                    "min-h-11 rounded-full px-2 py-2 text-[11px] font-semibold leading-tight text-center whitespace-normal break-words transition",
-                    activeTab === tab
-                      ? "bg-[#143b5d] text-white"
-                      : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
+                    "min-h-11 rounded-full px-2 py-2 text-center text-[11px] font-semibold leading-tight transition",
+                    activeTab === tab ? "bg-[#143b5d] text-white" : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
                   ].join(" ")}
                 >
                   {tabLabels[tab]}
@@ -204,100 +182,60 @@ export default function Network() {
           <div className="flex flex-col gap-2 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-[#143b5d]">{tabLabels[activeTab]}</h2>
-              <p className="text-sm text-slate-600">{visibleProfiles.length} profiles visible</p>
+              <p className="text-sm text-slate-600">{loading ? "Loading..." : `${visibleUsers.length} profiles visible`}</p>
             </div>
             <span className="rounded-full bg-[#143b5d]/10 px-3 py-1 text-xs font-semibold text-[#143b5d]">
               {normalizedQuery ? `Filtered by "${query}"` : "All results"}
             </span>
           </div>
 
+          {error && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+
           <div className="mt-4 grid gap-4 xl:grid-cols-2">
-            {visibleProfiles.map((profile) => {
-              const relationship = relationships[profile.id];
-              const isIncomingRequest = incomingRequestIds.includes(profile.id);
+            {visibleUsers.map((user) => {
+              const connection = connectionFor(user.id);
+              const relationship = relationshipFor(user.id);
 
               return (
-                <article key={profile.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                <article key={user.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="flex min-w-0 gap-3">
                       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-white">
-                        <Image src={profile.avatar} alt={profile.name} fill sizes="56px" className="object-cover" />
+                        <Image src="/logo.png" alt={user.displayName ?? user.username} fill sizes="56px" className="object-contain p-2" />
                       </div>
                       <div className="min-w-0">
-                        <h3 className="truncate font-semibold text-[#143b5d]">{profile.name}</h3>
-                        <p className="text-sm text-slate-700">{profile.headline}</p>
-                        <p className="text-xs text-slate-500">
-                          {profile.company} | {profile.location}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {profile.mutualConnections} mutual connections
-                        </p>
+                        <h3 className="truncate font-semibold text-[#143b5d]">{user.displayName ?? user.username}</h3>
+                        <p className="text-sm text-slate-700">{user.accountType === "ORGANIZATION" ? "Organization" : "Individual"}</p>
+                        <p className="text-xs text-slate-500">{user.email}</p>
                       </div>
                     </div>
                     {relationship !== "none" && (
-                      <span
-                        className={[
-                          "shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold",
-                          relationship === "connected"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-amber-100 text-amber-700",
-                        ].join(" ")}
-                      >
-                        {relationship === "connected" ? "Connected" : "Pending"}
+                      <span className="shrink-0 rounded-full bg-[#143b5d]/10 px-2 py-1 text-[11px] font-semibold text-[#143b5d]">
+                        {relationship === "connected" ? "Connected" : relationship === "incoming" ? "Request" : "Pending"}
                       </span>
                     )}
                   </div>
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {profile.skills.map((skill) => (
-                      <span
-                        key={skill}
-                        className="rounded-full bg-[#143b5d]/10 px-2.5 py-1 text-xs font-medium text-[#143b5d]"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {activeTab === "requests" && isIncomingRequest ? (
+                    {relationship === "incoming" && connection ? (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => acceptRequest(profile.id)}
-                          className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]"
-                        >
+                        <button type="button" onClick={() => updateConnection(connection.connectionId, "ACCEPTED")} className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]">
                           Accept
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => ignoreRequest(profile.id)}
-                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                        >
+                        <button type="button" onClick={() => updateConnection(connection.connectionId, "REJECTED")} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                           Ignore
                         </button>
                       </>
                     ) : relationship === "connected" ? (
-                      <Link
-                        href="/messages"
-                        className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]"
-                      >
+                      <Link href={`/messages?userId=${user.id}`} className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]">
                         Message
                       </Link>
-                    ) : relationship === "pending" ? (
-                      <button
-                        type="button"
-                        onClick={() => updateRelationship(profile.id, "none")}
-                        className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                      >
+                    ) : relationship === "pending" && connection ? (
+                      <button type="button" onClick={() => deleteConnection(connection.connectionId)} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                         Withdraw
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => updateRelationship(profile.id, "pending")}
-                        className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]"
-                      >
+                      <button type="button" onClick={() => createConnection(user.id)} className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]">
                         Connect
                       </button>
                     )}
@@ -307,14 +245,23 @@ export default function Network() {
             })}
           </div>
 
-          {visibleProfiles.length === 0 && (
+          {!loading && visibleUsers.length === 0 && (
             <div className="mt-4 rounded-3xl border border-dashed border-slate-300 bg-white/80 px-6 py-12 text-center">
               <h2 className="font-semibold text-[#143b5d]">No profiles found</h2>
-              <p className="mt-1 text-sm text-slate-600">Try a different tab or search term.</p>
+              <p className="mt-1 text-sm text-slate-600">Try a different tab or create another account to connect with.</p>
             </div>
           )}
         </section>
       </div>
     </AppShell>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-xl font-semibold text-[#143b5d]">{value}</p>
+      <p className="text-xs text-slate-500">{label}</p>
+    </div>
   );
 }

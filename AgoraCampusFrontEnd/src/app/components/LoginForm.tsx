@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { useAuth } from "../lib/auth";
 
+type AccountType = "INDIVIDUAL" | "ORGANIZATION";
+
 export function LoginForm() {
   const router = useRouter();
   const { initialized, error: authError, login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState<AccountType>("INDIVIDUAL");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -26,7 +29,7 @@ export function LoginForm() {
     setError("");
 
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, accountType);
       router.replace("/feed");
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Login failed.");
@@ -58,6 +61,25 @@ export function LoginForm() {
               spellCheck={false}
               className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/70"
             />
+          </div>
+        </label>
+
+        <label className="block">
+          <span className="sr-only">Account type</span>
+          <div className="flex items-center gap-3 border-b border-white/20 pb-2 text-white/50 transition focus-within:border-white">
+            <span className="text-lg text-white/50">#</span>
+            <select
+              value={accountType}
+              onChange={(event) => setAccountType(event.target.value as AccountType)}
+              className="w-full bg-transparent py-2 text-sm text-white outline-none"
+            >
+              <option className="text-slate-900" value="INDIVIDUAL">
+                Individual Account
+              </option>
+              <option className="text-slate-900" value="ORGANIZATION">
+                Organization Account
+              </option>
+            </select>
           </div>
         </label>
 

@@ -3,6 +3,10 @@ package com.agora.agoracampus.user.core.service;
 import com.agora.agoracampus.exception.BadRequestException;
 import com.agora.agoracampus.exception.ConflictException;
 import com.agora.agoracampus.exception.NotFoundException;
+import com.agora.agoracampus.profile.core.model.Profile;
+import com.agora.agoracampus.profile.core.repository.ProfileRepository;
+import com.agora.agoracampus.profile.individual.repository.IndividualProfileRepository;
+import com.agora.agoracampus.profile.organization.repository.OrganizationProfileRepository;
 import com.agora.agoracampus.security.SecurityIdentityService;
 import com.agora.agoracampus.user.core.dto.request.CreateAppUserRequest;
 import com.agora.agoracampus.user.core.dto.response.AppUserResponse;
@@ -33,11 +37,26 @@ class AppUserServiceTest {
     @Mock
     private SecurityIdentityService securityIdentityService;
 
+    @Mock
+    private ProfileRepository profileRepository;
+
+    @Mock
+    private IndividualProfileRepository individualProfileRepository;
+
+    @Mock
+    private OrganizationProfileRepository organizationProfileRepository;
+
     private AppUserService service;
 
     @BeforeEach
     void setUp() {
-        service = new AppUserService(appUserRepository, securityIdentityService);
+        service = new AppUserService(
+                appUserRepository,
+                securityIdentityService,
+                profileRepository,
+                individualProfileRepository,
+                organizationProfileRepository
+        );
     }
 
     @Test
@@ -82,6 +101,8 @@ class AppUserServiceTest {
         AppUser saved = user(1L);
 
         when(appUserRepository.save(any(AppUser.class))).thenReturn(saved);
+        when(profileRepository.findByAppUser_Id(1L)).thenReturn(Optional.empty());
+        when(profileRepository.save(any(Profile.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AppUserResponse response = service.createUser(request());
 
@@ -100,7 +121,7 @@ class AppUserServiceTest {
     }
 
     private CreateAppUserRequest request() {
-        return new CreateAppUserRequest("user@example.com", "user");
+        return new CreateAppUserRequest("user@example.com", "user", "INDIVIDUAL");
     }
 
     private AppUser user(Long id) {

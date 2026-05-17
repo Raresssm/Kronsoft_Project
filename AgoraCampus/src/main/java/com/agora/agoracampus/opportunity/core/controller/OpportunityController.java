@@ -65,4 +65,12 @@ public class OpportunityController {
     ) {
         return ResponseEntity.ok(opportunityService.getApplications(opportunityId, actingUserId));
     }
+
+    @GetMapping("/applications/users/{applicantUserId}")
+    public ResponseEntity<List<OpportunityApplicationResponse>> getApplicationsByApplicant(
+            @PathVariable Long applicantUserId,
+            @RequestParam Long actingUserId
+    ) {
+        return ResponseEntity.ok(opportunityService.getApplicationsByApplicant(applicantUserId, actingUserId));
+    }
 }
