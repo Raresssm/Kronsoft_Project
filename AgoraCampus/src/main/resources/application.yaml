@@ -32,6 +32,9 @@ app:
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8090}
   realm: ${KEYCLOAK_REALM:agora-campus}
+  admin:
+    username: ${KEYCLOAK_ADMIN:admin}
+    password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
 
 springdoc:
   api-docs:

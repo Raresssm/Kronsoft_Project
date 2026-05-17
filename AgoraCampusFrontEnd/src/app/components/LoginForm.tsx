@@ -1,16 +1,20 @@
 "use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { useAuth } from "../lib/auth";
 
 export function LoginForm() {
   const router = useRouter();
+  const { initialized, error: authError, login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!email.trim() || !password.trim()) {
@@ -18,13 +22,22 @@ export function LoginForm() {
       return;
     }
 
+    setSubmitting(true);
     setError("");
-    router.push("/feed");
+
+    try {
+      await login(email.trim(), password);
+      router.replace("/feed");
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Login failed.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="w-full max-w-md mx-auto rounded-[1.75rem] border border-white/20 bg-white/5 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
-          <div className="max-w-md flex flex-col items-center text-white animate-fadeIn">
+      <div className="max-w-md flex flex-col items-center text-white animate-fadeIn">
         <Image src="/logo.png" alt="Agora logo" width={90} height={90} />
       </div>
       <h1 className="text-center text-xl font-light tracking-[0.2em] text-white/90">
@@ -35,7 +48,7 @@ export function LoginForm() {
         <label className="block">
           <span className="sr-only">Email</span>
           <div className="flex items-center gap-3 border-b border-white/20 pb-2 text-white/50 transition focus-within:border-white">
-            <span className="text-lg text-white/50">✉</span>
+            <span className="text-lg text-white/50">@</span>
             <input
               type="email"
               placeholder="Email"
@@ -70,18 +83,21 @@ export function LoginForm() {
           <Link href="/" className="transition hover:text-white">
             Create Account
           </Link>
-          <a href="/forgotten" className="transition hover:text-white">
+          <Link href="/forgotten" className="transition hover:text-white">
             Forgot Password?
-          </a>
+          </Link>
         </div>
 
-        {error && <p className="text-center text-xs text-red-400">{error}</p>}
+        {(error || authError) && (
+          <p className="text-center text-xs text-red-400">{error || authError}</p>
+        )}
 
         <button
           type="submit"
-          className="w-full rounded-xl bg-[#143b5d] py-4 text-xs font-bold tracking-[0.2em] text-white shadow-lg transition-all hover:bg-[#1d5485] active:scale-95"
+          disabled={!initialized || submitting}
+          className="w-full rounded-xl bg-[#143b5d] py-4 text-xs font-bold tracking-[0.2em] text-white shadow-lg transition-all hover:bg-[#1d5485] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          LOG IN
+          {submitting ? "LOGGING IN..." : "LOG IN"}
         </button>
       </form>
     </div>

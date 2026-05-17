@@ -63,22 +63,23 @@ docker-compose up -d
 
 ### 2. Start The Backend API
 
-From a new terminal:
+From a new PowerShell terminal, use the backend script from the repository root:
 
 ```powershell
-cd C:\path\to\Kronsoft_Project\AgoraCampus
-mvn spring-boot:run
+cd C:\path\to\Kronsoft_Project
+.\scripts\dev-backend.ps1
 ```
 
-If you used `POSTGRES_PORT=5433`, run:
+The script loads `.env` before starting Spring Boot, so it uses `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and Keycloak settings from the same file as Docker Compose.
+
+If PowerShell blocks the script, run this once in that terminal:
 
 ```powershell
-cd C:\path\to\Kronsoft_Project\AgoraCampus
-$env:DB_URL='jdbc:postgresql://127.0.0.1:5433/agora_campus'
-$env:DB_USERNAME='postgres'
-$env:DB_PASSWORD='postgres'
-mvn spring-boot:run
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\dev-backend.ps1
 ```
+
+Starting the backend with plain `mvn spring-boot:run` from `AgoraCampus` is only safe when you are using the default database URL. If your `.env` maps PostgreSQL to `5433`, plain Maven will fall back to `localhost:5432` unless you manually set the environment variables first.
 
 Backend URLs:
 
@@ -150,7 +151,40 @@ Frontend URL:
 
 - `http://localhost:3000`
 
-Current state: the frontend runs separately, but login/API calls are not wired to Keycloak/backend yet.
+The frontend uses the Keycloak client `agora-frontend` behind its own login form and calls the backend at `http://localhost:8080`.
+
+Default frontend environment values:
+
+```env
+NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8090
+NEXT_PUBLIC_KEYCLOAK_REALM=agora-campus
+NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=agora-frontend
+NEXT_PUBLIC_API_URL=http://localhost:8080
+```
+
+You only need to create `AgoraCampusFrontEnd/.env.local` if you want to override those defaults.
+
+Login flow:
+
+1. Open `http://localhost:3000/login`.
+2. Enter `admin@agora.local` / `admin`, `admin` / `admin`, `demo@agora.local` / `demo`, or `demo` / `demo`.
+3. The frontend exchanges those credentials with Keycloak and stores the token for the current browser tab.
+4. The frontend calls `GET /api/users/me`.
+5. If the app user does not exist yet, the frontend creates it with `POST /api/users` using the email and username from the Keycloak token.
+6. App pages use the returned app user `id` as the current `actingUserId` when backend calls need it.
+
+Use **Log out** in the app header before switching accounts. The frontend login does not reuse old Keycloak browser cookies, so a new login attempt should use the credentials typed into the form.
+
+Create account flow:
+
+1. Open `http://localhost:3000`.
+2. Enter email, password, and account type.
+3. The frontend calls `POST /api/auth/register`.
+4. The backend creates the Keycloak account, then the frontend logs in with the same credentials and creates the matching app user row if needed.
+
+If account creation returns `401` or says registration is not enabled on the running backend, stop the backend process on `8080` and start it again. That means the frontend is still talking to an older backend process that does not include the public `POST /api/auth/register` endpoint.
+
+The `agora-frontend` Keycloak client must have **Direct Access Grants** enabled for the frontend login form. The realm import file already sets this for new local environments. If an existing local Keycloak volume was created before this setting changed, either enable it in the Keycloak admin console or reset local volumes with `docker-compose down -v`.
 
 ## Keycloak Development Data
 

@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode, SVGProps } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, type ReactNode, type SVGProps } from "react";
+import { useAuth } from "../lib/auth";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -36,6 +37,34 @@ export function AppShell({
   onSearchChange,
 }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { initialized, authenticated, appUser, logout } = useAuth();
+
+  useEffect(() => {
+    if (initialized && !authenticated) {
+      router.replace("/login");
+    }
+  }, [authenticated, initialized, router]);
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/login");
+  };
+
+  if (!initialized) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#3c3834] px-4 text-white">
+        <div className="rounded-2xl border border-white/20 bg-white/10 px-6 py-5 text-center shadow-2xl backdrop-blur-xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">Agora Campus</p>
+          <p className="mt-2 text-lg">Checking session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return null;
+  }
 
   return (
     <div className="relative isolate min-h-screen overflow-x-hidden bg-[#3c3834] text-slate-900">
@@ -103,6 +132,20 @@ export function AppShell({
               );
             })}
           </nav>
+
+          <div className="order-4 ml-auto flex items-center gap-2 lg:order-none lg:ml-0">
+            <div className="hidden min-w-0 text-right text-[#143b5d] sm:block">
+              <p className="truncate text-xs font-semibold">{appUser?.username ?? "Signed in"}</p>
+              <p className="truncate text-[11px] text-[#143b5d]/70">{appUser?.email}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="h-10 rounded-xl bg-[#143b5d] px-3 text-xs font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#1d5485]"
+            >
+              Log out
+            </button>
+          </div>
         </div>
       </header>
 
