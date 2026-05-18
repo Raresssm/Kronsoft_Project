@@ -207,7 +207,7 @@ export default function Alerts() {
     await Promise.all(visibleAlerts.filter((alert) => !alert.read).map(markRead));
   };
 
-  const clearRead = () => {
+  const hideRead = () => {
     setAlerts((currentAlerts) => currentAlerts.filter((alert) => !alert.read));
   };
 
@@ -222,6 +222,9 @@ export default function Alerts() {
           <section className="rounded-3xl border border-white/20 bg-white/80 p-4 shadow-2xl backdrop-blur-xl">
             <h1 className="text-lg font-semibold text-[#143b5d]">Alerts</h1>
             <p className="text-sm text-slate-700">{unreadCount} unread notifications</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Hidden read alerts come back after refresh if they still exist in backend data.
+            </p>
 
             <div className="mt-4 flex flex-col gap-2">
               <button
@@ -233,10 +236,10 @@ export default function Alerts() {
               </button>
               <button
                 type="button"
-                onClick={clearRead}
+                onClick={hideRead}
                 className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                Clear read
+                Hide read
               </button>
             </div>
           </section>

@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type ReactNode, type SVGProps } from "react";
+import { useCallback, useEffect, useState, type ReactNode, type SVGProps } from "react";
 import { useAuth } from "../lib/auth";
+import type { MessageResponse } from "../lib/api-types";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -38,13 +39,44 @@ export function AppShell({
 }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { initialized, authenticated, appUser, logout } = useAuth();
+  const { initialized, authenticated, appUser, apiFetch, logout } = useAuth();
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
 
   useEffect(() => {
     if (initialized && !authenticated) {
       router.replace("/login");
     }
   }, [authenticated, initialized, router]);
+
+  const refreshUnreadMessages = useCallback(async () => {
+    if (!authenticated || !appUser) {
+      setUnreadMessageCount(0);
+      return;
+    }
+
+    const response = await apiFetch(`/api/messages/incoming/${appUser.id}/unread?actingUserId=${appUser.id}`);
+    if (!response.ok) {
+      setUnreadMessageCount(0);
+      return;
+    }
+
+    const messages = (await response.json()) as MessageResponse[];
+    setUnreadMessageCount(messages.length);
+  }, [apiFetch, appUser, authenticated]);
+
+  useEffect(() => {
+    if (!authenticated || !appUser) {
+      queueMicrotask(() => setUnreadMessageCount(0));
+      return;
+    }
+
+    queueMicrotask(() => void refreshUnreadMessages());
+    const intervalId = window.setInterval(() => {
+      void refreshUnreadMessages();
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [appUser, authenticated, refreshUnreadMessages]);
 
   const handleLogout = async () => {
     await logout();
@@ -126,7 +158,15 @@ export function AppShell({
                       : "text-[#143b5d] hover:bg-white/15",
                   ].join(" ")}
                 >
-                  {item.icon({ className: "h-5 w-5" })}
+                  <span className="relative">
+                    {item.icon({ className: "h-5 w-5" })}
+                    {item.href === "/alerts" && unreadMessageCount > 0 && (
+                      <span
+                        aria-label={`${unreadMessageCount} unread messages`}
+                        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white/70"
+                      />
+                    )}
+                  </span>
                   <span className="leading-none">{item.label}</span>
                 </Link>
               );
