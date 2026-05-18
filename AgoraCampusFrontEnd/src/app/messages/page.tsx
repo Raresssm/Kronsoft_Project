@@ -140,7 +140,7 @@ export default function Messages() {
               </div>
             </div>
             <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-              API
+              Live
             </span>
           </header>
 

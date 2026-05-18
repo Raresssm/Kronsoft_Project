@@ -423,7 +423,7 @@ export default function ProfilePage() {
                   {isIndividual ? "Individual details" : "Organization details"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  This profile is connected to your account and stored in the backend.
+                  This profile is connected to your account and saved securely.
                 </p>
               </div>
               <button
@@ -443,7 +443,7 @@ export default function ProfilePage() {
           <div className="space-y-4 p-5 sm:p-6">
             {loading && <EmptyState label="Loading profile..." />}
             {!loading && !profile && (
-              <EmptyState label="No profile was found for this account. Sign out and sign in again to let the backend create it." />
+              <EmptyState label="No profile was found for this account. Sign out and sign in again to finish setting it up." />
             )}
             {error && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">

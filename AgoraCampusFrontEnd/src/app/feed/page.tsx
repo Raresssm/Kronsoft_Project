@@ -162,7 +162,7 @@ export default function Feed() {
                 <Image src="/logo.png" alt="Agora Campus" fill sizes="72px" className="object-contain bg-white p-2" />
               </div>
               <h2 className="mt-3 text-lg font-semibold text-[#143b5d]">Agora Campus</h2>
-              <p className="text-sm text-slate-700">A campus feed backed by the API.</p>
+              <p className="text-sm text-slate-700">Share updates with your campus network.</p>
               <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-white/40 pt-4 text-center">
                 <Stat label="Posts" value={items.length} />
                 <Stat label="Likes" value={items.reduce((sum, item) => sum + item.reactions.length, 0)} />

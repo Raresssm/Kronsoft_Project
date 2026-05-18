@@ -218,8 +218,8 @@ export default function Jobs() {
     await loadOpportunities();
   };
 
-  const hasApplied = (opportunity: OpportunityResponse) =>
-    myApplications.some((application) => application.opportunityId === opportunity.opportunityId);
+  const myApplicationFor = (opportunity: OpportunityResponse) =>
+    myApplications.find((application) => application.opportunityId === opportunity.opportunityId);
 
   return (
     <AppShell searchValue={query} onSearchChange={setQuery} searchPlaceholder="Search opportunities, skills, companies">
@@ -264,7 +264,7 @@ export default function Jobs() {
 
           <section className="rounded-3xl border border-white/20 bg-white/80 p-4 shadow-2xl backdrop-blur-xl">
             <h2 className="text-sm font-semibold text-[#143b5d]">Create</h2>
-            <p className="mt-1 text-sm text-slate-700">Publish an API-backed opportunity.</p>
+            <p className="mt-1 text-sm text-slate-700">Publish a campus opportunity.</p>
             <button type="button" onClick={openCreate} className="mt-4 w-full rounded-full bg-[#143b5d] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1d5485]">
               New opportunity
             </button>
@@ -291,6 +291,7 @@ export default function Jobs() {
           <div className="grid gap-4 xl:grid-cols-2">
             {visibleOpportunities.map((opportunity) => {
               const mine = opportunity.postedByUserId === appUser?.id;
+              const myApplication = myApplicationFor(opportunity);
               const applicationCount = applicationsByOpportunity[opportunity.opportunityId]?.length ?? 0;
               const applications = applicationsByOpportunity[opportunity.opportunityId] ?? [];
 
@@ -303,10 +304,13 @@ export default function Jobs() {
                           {labels[opportunity.type]}
                         </span>
                         <span className="rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700">
-                          {opportunity.period}
-                        </span>
-                        {mine && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Mine</span>}
-                      </div>
+                        {opportunity.period}
+                      </span>
+                      {mine && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Mine</span>}
+                      {!mine && myApplication && (
+                        <StatusPill status={myApplication.status} />
+                      )}
+                    </div>
                       <h3 className="mt-3 text-base font-semibold text-[#143b5d]">{opportunity.title}</h3>
                       <p className="text-sm text-slate-700">
                         {opportunity.postingProfile?.displayName ?? "Agora Campus"} | {opportunity.location}
@@ -315,16 +319,34 @@ export default function Jobs() {
                     </div>
                     <button
                       type="button"
-                      disabled={mine || hasApplied(opportunity)}
+                      disabled={mine || Boolean(myApplication)}
                       onClick={() => apply(opportunity)}
                       className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#143b5d] hover:bg-[#143b5d]/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {mine ? `${applicationCount} applicants` : hasApplied(opportunity) ? "Applied" : "Apply"}
+                      {mine
+                        ? `${applicationCount} applicants`
+                        : myApplication
+                          ? applicationButtonLabel(myApplication.status)
+                          : "Apply"}
                     </button>
                   </div>
 
                   <p className="mt-3 text-sm leading-6 text-slate-800">{opportunity.description}</p>
                   {opportunity.additionalInfo && <p className="mt-3 text-xs text-slate-500">{opportunity.additionalInfo}</p>}
+
+                  {!mine && myApplication && (
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-white/70 p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-[#143b5d]">Your application</p>
+                          <p className="text-xs text-slate-500">
+                            Applied {formatRelativeTime(myApplication.appliedAt)}
+                          </p>
+                        </div>
+                        <StatusPill status={myApplication.status} />
+                      </div>
+                    </div>
+                  )}
 
                   {mine && (
                     <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white/70 p-4">
@@ -455,6 +477,26 @@ export default function Jobs() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+function applicationButtonLabel(status: OpportunityApplicationResponse["status"]) {
+  if (status === "PENDING") return "Pending";
+  if (status === "ACCEPTED") return "Accepted";
+  return "Rejected";
+}
+
+function StatusPill({ status }: { status: OpportunityApplicationResponse["status"] }) {
+  const classes: Record<OpportunityApplicationResponse["status"], string> = {
+    PENDING: "bg-amber-100 text-amber-800",
+    ACCEPTED: "bg-emerald-100 text-emerald-700",
+    REJECTED: "bg-red-100 text-red-700",
+  };
+
+  return (
+    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${classes[status]}`}>
+      {status}
+    </span>
   );
 }
 

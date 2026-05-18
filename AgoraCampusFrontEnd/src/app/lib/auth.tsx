@@ -350,7 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          throw new Error("Account creation is not enabled on the running backend. Restart the backend with the latest code.");
+          throw new Error("Account creation is not available right now. Restart the app with the latest code.");
         }
         throw new Error((await readErrorMessage(response)) ?? `Account creation failed (${response.status}).`);
       }

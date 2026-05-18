@@ -146,7 +146,7 @@ export default function Network() {
 
   return (
     <AppShell searchValue={query} onSearchChange={setQuery} searchPlaceholder="Search people, skills, company">
-      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <section className="rounded-3xl border border-white/20 bg-white/80 p-4 shadow-2xl backdrop-blur-xl">
             <h1 className="text-lg font-semibold text-[#143b5d]">Network</h1>
@@ -160,18 +160,18 @@ export default function Network() {
           </section>
 
           <section className="rounded-3xl border border-white/20 bg-white/80 p-3 shadow-2xl backdrop-blur-xl">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex gap-2">
               {(Object.keys(tabLabels) as NetworkTab[]).map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
                   className={[
-                    "min-h-11 rounded-full px-2 py-2 text-center text-[11px] font-semibold leading-tight transition",
+                    "min-h-11 min-w-0 flex-1 rounded-full px-4 py-2 text-center text-sm font-semibold leading-tight transition",
                     activeTab === tab ? "bg-[#143b5d] text-white" : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
                   ].join(" ")}
                 >
-                  {tabLabels[tab]}
+                  <span className="block whitespace-nowrap">{tabLabels[tab]}</span>
                 </button>
               ))}
             </div>

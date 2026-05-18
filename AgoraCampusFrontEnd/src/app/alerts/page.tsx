@@ -32,16 +32,30 @@ type AlertItem = {
 
 const filters: { value: AlertFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "unread", label: "Unread" },
   { value: "message", label: "Messages" },
   { value: "job", label: "Jobs" },
   { value: "network", label: "Network" },
 ];
 
+const dismissedAlertsStorageKey = "agora-campus-dismissed-alerts";
+
+function readDismissedAlerts() {
+  if (typeof window === "undefined") return new Set<string>();
+
+  try {
+    return new Set(JSON.parse(window.sessionStorage.getItem(dismissedAlertsStorageKey) ?? "[]") as string[]);
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function storeDismissedAlerts(alertIds: Set<string>) {
+  window.sessionStorage.setItem(dismissedAlertsStorageKey, JSON.stringify([...alertIds]));
+}
+
 export default function Alerts() {
   const { appUser, apiFetch } = useAuth();
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  const [localReadIds, setLocalReadIds] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState<AlertFilter>("all");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -52,6 +66,7 @@ export default function Alerts() {
 
     setLoading(true);
     setError("");
+    const dismissedIds = readDismissedAlerts();
 
     try {
       const [usersResponse, connectionsResponse, messagesResponse, opportunitiesResponse, myApplicationsResponse] =
@@ -102,11 +117,11 @@ export default function Alerts() {
               body: message.content,
               time: formatRelativeTime(message.sentAt),
               timestamp: message.sentAt,
-              read: Boolean(message.acknowledged),
+              read: false,
               action: { label: "Open messages", href: "/messages" },
               messageId: message.messageId,
             },
-            localReadIds,
+            dismissedIds,
           ),
         ),
         ...connections.map((connection) =>
@@ -121,7 +136,7 @@ export default function Alerts() {
               read: false,
               action: { label: "Open network", href: "/network" },
             },
-            localReadIds,
+            dismissedIds,
           ),
         ),
         ...myApplications.map((application) => {
@@ -136,10 +151,10 @@ export default function Alerts() {
                 : `Your application is currently ${application.status.toLowerCase()}.`,
               time: formatRelativeTime(application.appliedAt),
               timestamp: application.appliedAt,
-              read: application.status === "PENDING",
+              read: false,
               action: { label: "Open jobs", href: "/jobs" },
             },
-            localReadIds,
+            dismissedIds,
           );
         }),
         ...applicationsForOwnedOpportunities.flat().map(({ application, opportunity }) =>
@@ -151,10 +166,10 @@ export default function Alerts() {
               body: `${application.applicantUsername} applied to ${opportunity.title}.`,
               time: formatRelativeTime(application.appliedAt),
               timestamp: application.appliedAt,
-              read: application.status !== "PENDING",
+              read: false,
               action: { label: "Review application", href: "/jobs" },
             },
-            localReadIds,
+            dismissedIds,
           ),
         ),
       ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -165,7 +180,7 @@ export default function Alerts() {
     } finally {
       setLoading(false);
     }
-  }, [apiFetch, appUser, localReadIds]);
+  }, [apiFetch, appUser]);
 
   useEffect(() => {
     queueMicrotask(() => void loadAlerts());
@@ -175,9 +190,11 @@ export default function Alerts() {
 
   const visibleAlerts = useMemo(() => {
     return alerts.filter((alert) => {
+      if (alert.read) return false;
+
       const matchesFilter =
         activeFilter === "all" ||
-        (activeFilter === "unread" ? !alert.read : alert.type === activeFilter);
+        (activeFilter === "unread" ? true : alert.type === activeFilter);
       const matchesSearch =
         !normalizedQuery ||
         [alert.title, alert.body, alert.type].join(" ").toLowerCase().includes(normalizedQuery);
@@ -195,7 +212,9 @@ export default function Alerts() {
       }).catch(() => undefined);
     }
 
-    setLocalReadIds((current) => new Set(current).add(alert.id));
+    const nextDismissedIds = readDismissedAlerts();
+    nextDismissedIds.add(alert.id);
+    storeDismissedAlerts(nextDismissedIds);
     setAlerts((currentAlerts) =>
       currentAlerts.map((currentAlert) =>
         currentAlert.id === alert.id ? { ...currentAlert, read: true } : currentAlert,
@@ -205,10 +224,6 @@ export default function Alerts() {
 
   const markAllRead = async () => {
     await Promise.all(visibleAlerts.filter((alert) => !alert.read).map(markRead));
-  };
-
-  const hideRead = () => {
-    setAlerts((currentAlerts) => currentAlerts.filter((alert) => !alert.read));
   };
 
   return (
@@ -222,9 +237,6 @@ export default function Alerts() {
           <section className="rounded-3xl border border-white/20 bg-white/80 p-4 shadow-2xl backdrop-blur-xl">
             <h1 className="text-lg font-semibold text-[#143b5d]">Alerts</h1>
             <p className="text-sm text-slate-700">{unreadCount} unread notifications</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Hidden read alerts come back after refresh if they still exist in backend data.
-            </p>
 
             <div className="mt-4 flex flex-col gap-2">
               <button
@@ -233,13 +245,6 @@ export default function Alerts() {
                 className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]"
               >
                 Mark all read
-              </button>
-              <button
-                type="button"
-                onClick={hideRead}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Hide read
               </button>
             </div>
           </section>
@@ -323,22 +328,20 @@ export default function Alerts() {
                           {alert.action.label}
                         </a>
                       )}
-                      {!alert.read && (
-                        <button
-                          type="button"
-                          onClick={() => void markRead(alert)}
-                          className="h-10 rounded-full bg-[#143b5d] px-4 text-sm font-semibold text-white hover:bg-[#1d5485]"
-                        >
-                          Mark read
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => void markRead(alert)}
+                        className="h-10 rounded-full bg-[#143b5d] px-4 text-sm font-semibold text-white hover:bg-[#1d5485]"
+                      >
+                        Mark read
+                      </button>
                     </div>
                   </div>
                 </article>
               ))}
 
             {!loading && visibleAlerts.length === 0 && (
-              <EmptyState title="No alerts found" body="There are no matching backend alerts right now." />
+              <EmptyState title="No alerts found" body="There are no matching notifications right now." />
             )}
           </div>
         </section>
