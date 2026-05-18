@@ -145,7 +145,7 @@ export default function Network() {
   const totalRequests = connections.filter((connection) => connection.status === "PENDING" && connection.receiverUserId === appUser?.id).length;
 
   return (
-    <AppShell searchValue={query} onSearchChange={setQuery} searchPlaceholder="Search people, skills, company">
+    <AppShell searchValue={query} onSearchChange={setQuery} searchPlaceholder="Search people, companies">
       <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <section className="rounded-3xl border border-white/20 bg-white/80 p-4 shadow-2xl backdrop-blur-xl">
@@ -226,10 +226,15 @@ export default function Network() {
                           Ignore
                         </button>
                       </>
-                    ) : relationship === "connected" ? (
-                      <Link href={`/messages?userId=${user.id}`} className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]">
-                        Message
-                      </Link>
+                    ) : relationship === "connected" && connection ? (
+                      <>
+                        <Link href={`/messages?userId=${user.id}`} className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]">
+                          Message
+                        </Link>
+                        <button type="button" onClick={() => deleteConnection(connection.connectionId)} className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                          Remove
+                        </button>
+                      </>
                     ) : relationship === "pending" && connection ? (
                       <button type="button" onClick={() => deleteConnection(connection.connectionId)} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                         Withdraw

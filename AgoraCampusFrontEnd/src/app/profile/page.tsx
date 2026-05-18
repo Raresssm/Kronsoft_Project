@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "../components/AppShell";
 import { useAuth } from "../lib/auth";
 import type {
+  AppUserSummary,
   BackgroundResponse,
   IndividualProfileResponse,
   OrganizationProfileResponse,
@@ -68,8 +70,19 @@ const emptyBackgroundForm: BackgroundForm = {
 };
 
 export default function ProfilePage() {
+  return (
+    <Suspense fallback={null}>
+      <ProfilePageContent />
+    </Suspense>
+  );
+}
+
+function ProfilePageContent() {
   const { appUser, apiFetch, refreshAppUser } = useAuth();
+  const searchParams = useSearchParams();
+  const requestedUserIdParam = searchParams.get("userId");
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
+  const [profileOwner, setProfileOwner] = useState<AppUserSummary | null>(null);
   const [form, setForm] = useState<ProfileForm>(emptyForm);
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<ProfileFilter>("All");
@@ -82,12 +95,15 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
 
-  const accountType = appUser?.accountType ?? "INDIVIDUAL";
+  const accountOwner = profileOwner ?? appUser;
+  const accountType = accountOwner?.accountType ?? "INDIVIDUAL";
+  const isOwnProfile = !profileOwner || profileOwner.id === appUser?.id;
   const isIndividual = accountType === "INDIVIDUAL";
   const filters = isIndividual ? individualFilters : organizationFilters;
 
   const loadProfile = useCallback(async () => {
-    if (!appUser?.profileId || !appUser.accountType) {
+    if (!appUser) {
+      setProfileOwner(null);
       setProfile(null);
       setLoading(false);
       return;
@@ -96,13 +112,41 @@ export default function ProfilePage() {
     setLoading(true);
     setError("");
     setSavedMessage("");
-
-    const endpoint =
-      appUser.accountType === "ORGANIZATION"
-        ? `/api/organization/${appUser.profileId}?actingUserId=${appUser.id}`
-        : `/api/individuals/${appUser.profileId}?actingUserId=${appUser.id}`;
+    setEditing(false);
+    setEditingBackgroundId(null);
+    setBackgroundForm(emptyBackgroundForm);
 
     try {
+      const requestedUserId = requestedUserIdParam ? Number(requestedUserIdParam) : null;
+      let nextProfileOwner: AppUserSummary = appUser;
+
+      if (requestedUserId && requestedUserId !== appUser.id) {
+        const usersResponse = await apiFetch("/api/users");
+        if (!usersResponse.ok) {
+          throw new Error(`Could not load profile owner (${usersResponse.status}).`);
+        }
+
+        const users = (await usersResponse.json()) as AppUserSummary[];
+        const foundUser = users.find((user) => user.id === requestedUserId);
+        if (!foundUser) {
+          throw new Error("Could not find this applicant account.");
+        }
+
+        nextProfileOwner = foundUser;
+      }
+
+      setProfileOwner(nextProfileOwner);
+
+      if (!nextProfileOwner.profileId || !nextProfileOwner.accountType) {
+        setProfile(null);
+        return;
+      }
+
+      const endpoint =
+        nextProfileOwner.accountType === "ORGANIZATION"
+          ? `/api/organization/${nextProfileOwner.profileId}?actingUserId=${appUser.id}`
+          : `/api/individuals/${nextProfileOwner.profileId}?actingUserId=${appUser.id}`;
+
       const response = await apiFetch(endpoint);
       if (!response.ok) {
         throw new Error(`Could not load profile (${response.status}).`);
@@ -110,37 +154,38 @@ export default function ProfilePage() {
 
       const nextProfile = (await response.json()) as ProfileResponse;
       setProfile(nextProfile);
-      setForm(profileToForm(nextProfile, appUser.accountType));
+      setForm(profileToForm(nextProfile, nextProfileOwner.accountType));
     } catch (loadError) {
+      setProfile(null);
       setError(loadError instanceof Error ? loadError.message : "Could not load profile.");
     } finally {
       setLoading(false);
     }
-  }, [apiFetch, appUser]);
+  }, [apiFetch, appUser, requestedUserIdParam]);
 
   useEffect(() => {
     queueMicrotask(() => void loadProfile());
   }, [loadProfile]);
 
   const displayName = useMemo(() => {
-    if (!profile) return appUser?.displayName ?? appUser?.username ?? "Profile";
+    if (!profile) return accountOwner?.displayName ?? accountOwner?.username ?? "Profile";
     if (isIndividual) {
       const individualProfile = profile as IndividualProfileResponse;
       return (
         `${individualProfile.firstName ?? ""} ${individualProfile.lastName ?? ""}`.trim() ||
-        appUser?.displayName ||
-        appUser?.username ||
+        accountOwner?.displayName ||
+        accountOwner?.username ||
         "Individual profile"
       );
     }
 
     return (
       (profile as OrganizationProfileResponse).organizationName ||
-      appUser?.displayName ||
-      appUser?.username ||
+      accountOwner?.displayName ||
+      accountOwner?.username ||
       "Organization profile"
     );
-  }, [appUser?.displayName, appUser?.username, isIndividual, profile]);
+  }, [accountOwner?.displayName, accountOwner?.username, isIndividual, profile]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const backgrounds = isIndividual ? ((profile as IndividualProfileResponse | null)?.backgrounds ?? []) : [];
@@ -184,7 +229,7 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
-    if (!appUser?.profileId || !appUser.accountType) return;
+    if (!isOwnProfile || !appUser?.profileId || !appUser.accountType) return;
 
     setSaving(true);
     setError("");
@@ -250,6 +295,8 @@ export default function ProfilePage() {
   };
 
   const handleEditBackground = (background: BackgroundResponse) => {
+    if (!isOwnProfile) return;
+
     setEditingBackgroundId(background.backgroundId);
     setBackgroundForm({
       type: background.type,
@@ -266,7 +313,7 @@ export default function ProfilePage() {
   };
 
   const handleSaveBackground = async () => {
-    if (!appUser || !isIndividual) return;
+    if (!isOwnProfile || !appUser || !isIndividual) return;
 
     const individualProfileId = appUser.individualProfileId ?? (profile as IndividualProfileResponse | null)?.id;
     if (!individualProfileId) {
@@ -320,7 +367,7 @@ export default function ProfilePage() {
   };
 
   const handleDeleteBackground = async (backgroundId: number) => {
-    if (!appUser || !isIndividual) return;
+    if (!isOwnProfile || !appUser || !isIndividual) return;
 
     const individualProfileId = appUser.individualProfileId ?? (profile as IndividualProfileResponse | null)?.id;
     if (!individualProfileId) {
@@ -418,8 +465,6 @@ export default function ProfilePage() {
               ))}
             </div>
           </section>
-
-          {/* Snapshot removed for individual profiles — irrelevant */}
         </aside>
 
         <section className="min-w-0 rounded-[2rem] border border-white/20 bg-white/90 shadow-2xl backdrop-blur-xl">
@@ -433,20 +478,22 @@ export default function ProfilePage() {
                   {isIndividual ? "Individual details" : "Organization details"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  This profile is connected to your account and saved securely.
+                  {isOwnProfile ? "This profile is connected to your account and saved securely." : "Public profile details."}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditing((current) => !current);
-                  setSavedMessage("");
-                  setError("");
-                }}
-                className="h-10 rounded-xl bg-[#143b5d] px-4 text-xs font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#1d5485]"
-              >
-                {editing ? "Close editor" : "Edit profile"}
-              </button>
+              {isOwnProfile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing((current) => !current);
+                    setSavedMessage("");
+                    setError("");
+                  }}
+                  className="h-10 rounded-xl bg-[#143b5d] px-4 text-xs font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#1d5485]"
+                >
+                  {editing ? "Close editor" : "Edit profile"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -466,7 +513,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {profile && editing && (
+            {profile && editing && isOwnProfile && (
               <ProfileSection title="Edit Profile" description="Update the fields that should appear on your public profile.">
                 <div className="grid gap-4 lg:grid-cols-2">
                   {isIndividual ? (
@@ -610,7 +657,7 @@ export default function ProfilePage() {
             {profile && (activeFilter === "All" || activeFilter === "Contact") && (
               <ProfileSection title="Contact" description="Public contact details for this profile.">
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <DetailCard label="Email" value={appUser?.email ?? "Not set"} />
+                  <DetailCard label="Email" value={accountOwner?.email ?? "Not set"} />
                   <DetailCard label="Phone" value={(isIndividual ? (profile as IndividualProfileResponse).phone : (profile as OrganizationProfileResponse).phone) || "Not set"} />
                   <DetailCard label="Account" value={isIndividual ? "Individual" : "Organization"} />
                 </div>
@@ -625,7 +672,7 @@ export default function ProfilePage() {
                       <BackgroundCard
                         key={background.backgroundId}
                         background={background}
-                        editable={editing}
+                        editable={editing && isOwnProfile}
                         saving={savingBackground}
                         onEdit={() => handleEditBackground(background)}
                         onDelete={() => handleDeleteBackground(background.backgroundId)}
@@ -733,17 +780,6 @@ function DetailCard({ label, value }: { label: string; value: string | number })
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="text-[11px] uppercase tracking-wide text-slate-400">{label}</div>
       <div className="mt-1 break-words text-sm font-semibold text-slate-700">{value}</div>
-    </div>
-  );
-}
-
-function Snapshot({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-2xl border border-white/60 bg-white/80 p-3">
-      <div className="flex min-h-12 items-center justify-center text-center text-[10px] font-semibold leading-tight text-slate-500">
-        {label}
-      </div>
-      <div className="mt-1 text-lg font-semibold text-[#143b5d]">{value}</div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import com.agora.agoracampus.opportunity.application.dto.request.CreateOpportuni
 import com.agora.agoracampus.opportunity.application.dto.request.UpdateOpportunityApplicationStatusRequest;
 import com.agora.agoracampus.opportunity.application.dto.response.OpportunityApplicationResponse;
 import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
+import com.agora.agoracampus.opportunity.core.dto.request.UpdateOpportunityRequest;
 import com.agora.agoracampus.opportunity.core.dto.response.OpportunityResponse;
 import com.agora.agoracampus.opportunity.core.model.OpportunityType;
 import com.agora.agoracampus.opportunity.core.service.OpportunityService;
@@ -49,6 +50,24 @@ public class OpportunityController {
         return ResponseEntity.ok(opportunityService.getOpportunity(opportunityId, actingUserId));
     }
 
+    @PutMapping("/{opportunityId}")
+    public ResponseEntity<OpportunityResponse> updateOpportunity(
+            @PathVariable Long opportunityId,
+            @Valid @RequestBody UpdateOpportunityRequest request,
+            @RequestParam Long actingUserId
+    ) {
+        return ResponseEntity.ok(opportunityService.updateOpportunity(opportunityId, actingUserId, request));
+    }
+
+    @DeleteMapping("/{opportunityId}")
+    public ResponseEntity<Void> deleteOpportunity(
+            @PathVariable Long opportunityId,
+            @RequestParam Long actingUserId
+    ) {
+        opportunityService.deleteOpportunity(opportunityId, actingUserId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{opportunityId}/applications")
     public ResponseEntity<OpportunityApplicationResponse> applyToOpportunity(
             @PathVariable Long opportunityId,
@@ -75,12 +94,21 @@ public class OpportunityController {
         return ResponseEntity.ok(opportunityService.getApplicationsByApplicant(applicantUserId, actingUserId));
     }
 
-        @PatchMapping("/applications/{applicationId}/status")
-        public ResponseEntity<OpportunityApplicationResponse> updateApplicationStatus(
-                        @PathVariable Long applicationId,
-                        @Valid @RequestBody UpdateOpportunityApplicationStatusRequest request,
-                        @RequestParam Long actingUserId
-        ) {
-                return ResponseEntity.ok(opportunityService.updateApplicationStatus(applicationId, actingUserId, request));
-        }
+    @PatchMapping("/applications/{applicationId}/status")
+    public ResponseEntity<OpportunityApplicationResponse> updateApplicationStatus(
+            @PathVariable Long applicationId,
+            @Valid @RequestBody UpdateOpportunityApplicationStatusRequest request,
+            @RequestParam Long actingUserId
+    ) {
+        return ResponseEntity.ok(opportunityService.updateApplicationStatus(applicationId, actingUserId, request));
+    }
+
+    @DeleteMapping("/applications/{applicationId}")
+    public ResponseEntity<Void> deleteApplication(
+            @PathVariable Long applicationId,
+            @RequestParam Long actingUserId
+    ) {
+        opportunityService.deleteApplication(applicationId, actingUserId);
+        return ResponseEntity.noContent().build();
+    }
 }

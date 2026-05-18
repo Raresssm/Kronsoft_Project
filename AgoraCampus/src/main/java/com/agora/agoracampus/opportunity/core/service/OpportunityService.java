@@ -11,6 +11,7 @@ import com.agora.agoracampus.opportunity.application.model.ApplicationStatus;
 import com.agora.agoracampus.opportunity.application.model.OpportunityApplication;
 import com.agora.agoracampus.opportunity.application.repository.OpportunityApplicationRepository;
 import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
+import com.agora.agoracampus.opportunity.core.dto.request.UpdateOpportunityRequest;
 import com.agora.agoracampus.opportunity.core.dto.response.OpportunityResponse;
 import com.agora.agoracampus.opportunity.core.mapper.OpportunityMapper;
 import com.agora.agoracampus.opportunity.core.model.Opportunity;
@@ -203,12 +204,56 @@ public class OpportunityService {
         return opportunityApplicationMapper.toResponse(opportunityApplicationRepository.save(application));
     }
 
+    @Transactional
+    public void deleteApplication(Long applicationId, Long actingUserId) {
+        OpportunityActorRole actorRole = resolveActorRole(actingUserId);
+        OpportunityApplication application = opportunityApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new NotFoundException("Opportunity application " + applicationId + " was not found."));
+
+        boolean applicantOwnsApplication = actingUserId.equals(application.getApplicantUser().getId());
+        boolean admin = actorRole == OpportunityActorRole.ADMIN;
+        if (!admin && !applicantOwnsApplication) {
+            throw new BadRequestException("Only the applicant or admins can delete this application.");
+        }
+
+        opportunityApplicationRepository.delete(application);
+    }
+
     // ── READ ──────────────────────────────────────────────────────────────────
 
     @Transactional
     public OpportunityResponse getOpportunity(Long opportunityId, Long actingUserId) {
         validateUserExists(actingUserId);
         return opportunityMapper.toResponse(getRequiredOpportunityEntity(opportunityId));
+    }
+
+    @Transactional
+    public OpportunityResponse updateOpportunity(
+            Long opportunityId,
+            Long actingUserId,
+            UpdateOpportunityRequest request
+    ) {
+        OpportunityActorRole actorRole = resolveActorRole(actingUserId);
+        Opportunity opportunity = getRequiredOpportunityEntity(opportunityId);
+        requireAdminOrOwner(actorRole, actingUserId, opportunity.getPostedByUser().getId());
+
+        opportunity.setTitle(request.title());
+        opportunity.setLocation(request.location());
+        opportunity.setPeriod(request.period());
+        opportunity.setDescription(request.description());
+        opportunity.setAdditionalInfo(request.additionalInfo());
+
+        return opportunityMapper.toResponse(opportunityRepository.save(opportunity));
+    }
+
+    @Transactional
+    public void deleteOpportunity(Long opportunityId, Long actingUserId) {
+        OpportunityActorRole actorRole = resolveActorRole(actingUserId);
+        Opportunity opportunity = getRequiredOpportunityEntity(opportunityId);
+        requireAdminOrOwner(actorRole, actingUserId, opportunity.getPostedByUser().getId());
+
+        opportunityApplicationRepository.deleteByOpportunityId(opportunityId);
+        opportunityRepository.delete(opportunity);
     }
 
     @Transactional
@@ -276,10 +321,10 @@ public class OpportunityService {
     private void requireAdminOrOwner(
             OpportunityActorRole actorRole,
             Long actingUserId,
-            Long ownerId
+        Long ownerId
     ) {
         if (actorRole != OpportunityActorRole.ADMIN && !actingUserId.equals(ownerId)) {
-            throw new BadRequestException("Only the owner or admins can view these applications.");
+            throw new BadRequestException("Only the owner or admins can perform this action.");
         }
     }
 

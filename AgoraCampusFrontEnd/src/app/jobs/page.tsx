@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "../components/AppShell";
 import {
   formatRelativeTime,
@@ -18,6 +19,12 @@ type FormState = {
   period: string;
   description: string;
   skills: string;
+};
+
+type TokenClaims = {
+  realm_access?: {
+    roles?: string[];
+  };
 };
 
 const filters: OpportunityFilter[] = ["All", "VOLUNTEERING", "INTERNSHIP", "STUDENT_PROJECT", "COMPETITION"];
@@ -38,7 +45,7 @@ const emptyForm: FormState = {
 };
 
 export default function Jobs() {
-  const { appUser, apiFetch } = useAuth();
+  const { appUser, apiFetch, token } = useAuth();
   const [opportunities, setOpportunities] = useState<OpportunityResponse[]>([]);
   const [applicationsByOpportunity, setApplicationsByOpportunity] = useState<Record<number, OpportunityApplicationResponse[]>>({});
   const [myApplications, setMyApplications] = useState<OpportunityApplicationResponse[]>([]);
@@ -46,10 +53,12 @@ export default function Jobs() {
   const [postedByMeOnly, setPostedByMeOnly] = useState(false);
   const [query, setQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingOpportunityId, setEditingOpportunityId] = useState<number | null>(null);
   const [createType, setCreateType] = useState<OpportunityType>("STUDENT_PROJECT");
   const [form, setForm] = useState<FormState>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const isAdmin = useMemo(() => hasAdminRole(token), [token]);
 
   const loadOpportunities = useCallback(async () => {
     if (!appUser) return;
@@ -70,7 +79,7 @@ export default function Jobs() {
 
       const ownApplications = await Promise.all(
         items
-          .filter((opportunity) => opportunity.postedByUserId === appUser.id)
+          .filter((opportunity) => isAdmin || opportunity.postedByUserId === appUser.id)
           .map(async (opportunity) => {
             const applicationsResponse = await apiFetch(
               `/api/opportunities/${opportunity.opportunityId}/applications?actingUserId=${appUser.id}`,
@@ -89,7 +98,7 @@ export default function Jobs() {
     } finally {
       setLoading(false);
     }
-  }, [apiFetch, appUser]);
+  }, [apiFetch, appUser, isAdmin]);
 
   useEffect(() => {
     queueMicrotask(() => void loadOpportunities());
@@ -129,8 +138,30 @@ export default function Jobs() {
   };
 
   const openCreate = () => {
+    setEditingOpportunityId(null);
+    setForm(emptyForm);
     setCreateType(activeFilter !== "All" && availableCreateTypes.includes(activeFilter) ? activeFilter : availableCreateTypes[0]);
     setIsCreateOpen(true);
+  };
+
+  const openEdit = (opportunity: OpportunityResponse) => {
+    setEditingOpportunityId(opportunity.opportunityId);
+    setCreateType(opportunity.type);
+    setForm({
+      title: opportunity.title,
+      location: opportunity.location,
+      period: opportunity.period,
+      description: opportunity.description,
+      skills: opportunity.additionalInfo ?? "",
+    });
+    setError("");
+    setIsCreateOpen(true);
+  };
+
+  const closeEditor = () => {
+    setIsCreateOpen(false);
+    setEditingOpportunityId(null);
+    setForm(emptyForm);
   };
 
   const buildSubtypePayload = (type: OpportunityType, skills: string) => {
@@ -152,9 +183,31 @@ export default function Jobs() {
     return { studentProject: { projectDomain: skillText, requiredSkills: skillText, teamSize: 3 } };
   };
 
-  const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSaveOpportunity = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!appUser) return;
+
+    if (editingOpportunityId) {
+      const response = await apiFetch(`/api/opportunities/${editingOpportunityId}?actingUserId=${appUser.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          title: form.title.trim(),
+          location: form.location.trim() || "Flexible",
+          period: form.period.trim() || "Flexible",
+          description: form.description.trim(),
+          additionalInfo: form.skills.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        setError(`Could not update opportunity (${response.status}).`);
+        return;
+      }
+
+      closeEditor();
+      await loadOpportunities();
+      return;
+    }
 
     const profilePayload =
       appUser.accountType === "ORGANIZATION"
@@ -186,6 +239,23 @@ export default function Jobs() {
     await loadOpportunities();
   };
 
+  const deleteOpportunity = async (opportunity: OpportunityResponse) => {
+    if (!appUser) return;
+
+    if (!window.confirm(`Delete "${opportunity.title}"?`)) return;
+
+    const response = await apiFetch(`/api/opportunities/${opportunity.opportunityId}?actingUserId=${appUser.id}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      setError(`Could not delete opportunity (${response.status}).`);
+      return;
+    }
+
+    await loadOpportunities();
+  };
+
   const apply = async (opportunity: OpportunityResponse) => {
     if (!appUser || opportunity.postedByUserId === appUser.id) return;
 
@@ -212,6 +282,21 @@ export default function Jobs() {
 
     if (!response.ok) {
       setError(`Could not update application (${response.status}).`);
+      return;
+    }
+
+    await loadOpportunities();
+  };
+
+  const deleteApplication = async (applicationId: number) => {
+    if (!appUser) return;
+
+    const response = await apiFetch(`/api/opportunities/applications/${applicationId}?actingUserId=${appUser.id}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      setError(`Could not remove application (${response.status}).`);
       return;
     }
 
@@ -288,9 +373,10 @@ export default function Jobs() {
 
           {error && <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid items-start gap-4 xl:grid-cols-2">
             {visibleOpportunities.map((opportunity) => {
               const mine = opportunity.postedByUserId === appUser?.id;
+              const canManage = mine || isAdmin;
               const myApplication = myApplicationFor(opportunity);
               const applicationCount = applicationsByOpportunity[opportunity.opportunityId]?.length ?? 0;
               const applications = applicationsByOpportunity[opportunity.opportunityId] ?? [];
@@ -307,6 +393,7 @@ export default function Jobs() {
                         {opportunity.period}
                       </span>
                       {mine && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Mine</span>}
+                      {!mine && isAdmin && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800">Admin</span>}
                       {!mine && myApplication && (
                         <StatusPill status={myApplication.status} />
                       )}
@@ -317,24 +404,41 @@ export default function Jobs() {
                       </p>
                       <p className="text-xs text-slate-500">{formatRelativeTime(opportunity.createdAt)}</p>
                     </div>
-                    <button
-                      type="button"
-                      disabled={mine || Boolean(myApplication)}
-                      onClick={() => apply(opportunity)}
-                      className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#143b5d] hover:bg-[#143b5d]/10 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {mine
-                        ? `${applicationCount} applicants`
-                        : myApplication
-                          ? applicationButtonLabel(myApplication.status)
-                          : "Apply"}
-                    </button>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      {canManage ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(opportunity)}
+                            className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#143b5d] hover:bg-[#143b5d]/10"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteOpportunity(opportunity)}
+                            className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={Boolean(myApplication)}
+                          onClick={() => apply(opportunity)}
+                          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#143b5d] hover:bg-[#143b5d]/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {myApplication ? applicationButtonLabel(myApplication.status) : "Apply"}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <p className="mt-3 text-sm leading-6 text-slate-800">{opportunity.description}</p>
                   {opportunity.additionalInfo && <p className="mt-3 text-xs text-slate-500">{opportunity.additionalInfo}</p>}
 
-                  {!mine && myApplication && (
+                  {!canManage && myApplication && (
                     <div className="mt-4 rounded-2xl border border-slate-200 bg-white/70 p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
@@ -345,10 +449,17 @@ export default function Jobs() {
                         </div>
                         <StatusPill status={myApplication.status} />
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteApplication(myApplication.applicationId)}
+                        className="mt-3 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        Withdraw application
+                      </button>
                     </div>
                   )}
 
-                  {mine && (
+                  {canManage && (
                     <div className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white/70 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-semibold text-[#143b5d]">Applicants</p>
@@ -367,19 +478,26 @@ export default function Jobs() {
                               className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
                             >
                               <div>
-                                <p className="font-semibold text-slate-900">{application.applicantUsername}</p>
+                                <Link
+                                  href={`/profile?userId=${application.applicantUserId}`}
+                                  className="font-semibold text-[#143b5d] hover:underline"
+                                >
+                                  {application.applicantUsername}
+                                </Link>
                                 <p className="text-xs text-slate-500">{application.status}</p>
                               </div>
 
-                              {application.status === "PENDING" ? (
+                              {application.status === "PENDING" || application.status === "ACCEPTED" ? (
                                 <div className="flex flex-wrap gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateApplicationStatus(application.applicationId, "ACCEPTED")}
-                                    className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]"
-                                  >
-                                    Accept
-                                  </button>
+                                  {application.status === "PENDING" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => updateApplicationStatus(application.applicationId, "ACCEPTED")}
+                                      className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1d5485]"
+                                    >
+                                      Accept
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => updateApplicationStatus(application.applicationId, "REJECTED")}
@@ -387,6 +505,7 @@ export default function Jobs() {
                                   >
                                     Reject
                                   </button>
+                                  {application.status === "ACCEPTED" && <StatusPill status={application.status} />}
                                 </div>
                               ) : (
                                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
@@ -415,19 +534,23 @@ export default function Jobs() {
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <button type="button" className="absolute inset-0 bg-black/45" onClick={() => setIsCreateOpen(false)} aria-label="Close create opportunity modal" />
+          <button type="button" className="absolute inset-0 bg-black/45" onClick={closeEditor} aria-label="Close create opportunity modal" />
           <section className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/20 bg-white/90 p-5 shadow-2xl backdrop-blur-xl">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-[#143b5d]">New opportunity</p>
-                <h2 className="mt-1 text-2xl font-semibold text-slate-900">Publish an opportunity</h2>
+                <p className="text-sm font-semibold uppercase tracking-wide text-[#143b5d]">
+                  {editingOpportunityId ? "Edit opportunity" : "New opportunity"}
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold text-slate-900">
+                  {editingOpportunityId ? "Update opportunity" : "Publish an opportunity"}
+                </h2>
               </div>
-              <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+              <button type="button" onClick={closeEditor} className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
                 Close
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="mt-5 space-y-4">
+            <form onSubmit={handleSaveOpportunity} className="mt-5 space-y-4">
               <div className="rounded-3xl border border-white/30 bg-white/70 p-4">
                 <p className="text-sm font-semibold text-slate-700">Type</p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -435,9 +558,10 @@ export default function Jobs() {
                     <button
                       key={option}
                       type="button"
+                      disabled={Boolean(editingOpportunityId)}
                       onClick={() => setCreateType(option)}
                       className={[
-                        "rounded-full px-3 py-2 text-sm font-semibold transition",
+                        "rounded-full px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                         createType === option ? "bg-[#143b5d] text-white" : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
                       ].join(" ")}
                     >
@@ -465,15 +589,17 @@ export default function Jobs() {
               </label>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setForm(emptyForm)}
-                  className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  Reset
-                </button>
+                {!editingOpportunityId && (
+                  <button
+                    type="button"
+                    onClick={() => setForm(emptyForm)}
+                    className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Reset
+                  </button>
+                )}
                 <button type="submit" className="rounded-full bg-[#143b5d] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1d5485]">
-                  Create
+                  {editingOpportunityId ? "Save changes" : "Create"}
                 </button>
               </div>
             </form>
@@ -488,6 +614,26 @@ function applicationButtonLabel(status: OpportunityApplicationResponse["status"]
   if (status === "PENDING") return "Pending";
   if (status === "ACCEPTED") return "Accepted";
   return "Rejected";
+}
+
+function hasAdminRole(token: string | undefined) {
+  if (!token) return false;
+
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return false;
+
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+    const claims = JSON.parse(window.atob(padded)) as TokenClaims;
+
+    return (claims.realm_access?.roles ?? []).some((role) => {
+      const normalizedRole = role.toUpperCase();
+      return normalizedRole === "ADMIN" || normalizedRole === "ROLE_ADMIN";
+    });
+  } catch {
+    return false;
+  }
 }
 
 function StatusPill({ status }: { status: OpportunityApplicationResponse["status"] }) {

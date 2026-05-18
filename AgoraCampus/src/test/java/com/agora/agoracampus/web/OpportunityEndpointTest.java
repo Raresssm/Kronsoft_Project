@@ -6,6 +6,7 @@ import com.agora.agoracampus.opportunity.competition.controller.CompetitionContr
 import com.agora.agoracampus.opportunity.competition.service.CompetitionService;
 import com.agora.agoracampus.opportunity.core.controller.OpportunityController;
 import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
+import com.agora.agoracampus.opportunity.core.dto.request.UpdateOpportunityRequest;
 import com.agora.agoracampus.opportunity.core.model.OpportunityType;
 import com.agora.agoracampus.opportunity.core.service.OpportunityService;
 import com.agora.agoracampus.opportunity.internship.controller.InternshipController;
@@ -30,8 +31,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
@@ -99,6 +102,21 @@ class OpportunityEndpointTest {
                         .param("actingUserId", "1"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/opportunities/10").param("actingUserId", "1")).andExpect(status().isOk());
+        mockMvc.perform(put("/api/opportunities/10")
+                        .param("actingUserId", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Updated internship",
+                                  "location": "Bucharest",
+                                  "period": "Autumn",
+                                  "description": "Updated description",
+                                  "additionalInfo": "React"
+                                }
+                                """))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/opportunities/10").param("actingUserId", "1"))
+                .andExpect(status().isNoContent());
         mockMvc.perform(post("/api/opportunities/10/applications")
                         .param("actingUserId", "2")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -119,13 +137,18 @@ class OpportunityEndpointTest {
                     }
                     """))
             .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/opportunities/applications/99").param("actingUserId", "2"))
+                .andExpect(status().isNoContent());
 
         verify(opportunityService).createOpportunity(any(CreateOpportunityRequest.class), eq(1L));
         verify(opportunityService).listOpportunities(OpportunityType.INTERNSHIP, "Cluj", 1L, 1L);
         verify(opportunityService).getOpportunity(10L, 1L);
+        verify(opportunityService).updateOpportunity(eq(10L), eq(1L), any(UpdateOpportunityRequest.class));
+        verify(opportunityService).deleteOpportunity(10L, 1L);
         verify(opportunityService).applyToOpportunity(eq(10L), any(CreateOpportunityApplicationRequest.class), eq(2L));
         verify(opportunityService).getApplications(10L, 1L);
         verify(opportunityService).updateApplicationStatus(eq(99L), eq(1L), any(UpdateOpportunityApplicationStatusRequest.class));
+        verify(opportunityService).deleteApplication(99L, 2L);
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.agora.agoracampus.opportunity.application.model.ApplicationStatus;
 import com.agora.agoracampus.opportunity.application.model.OpportunityApplication;
 import com.agora.agoracampus.opportunity.application.repository.OpportunityApplicationRepository;
 import com.agora.agoracampus.opportunity.core.dto.request.CreateOpportunityRequest;
+import com.agora.agoracampus.opportunity.core.dto.request.UpdateOpportunityRequest;
 import com.agora.agoracampus.opportunity.core.mapper.OpportunityMapper;
 import com.agora.agoracampus.opportunity.core.model.Opportunity;
 import com.agora.agoracampus.opportunity.core.model.OpportunityType;
@@ -237,6 +238,94 @@ class OpportunityServiceTest {
                 )
         );
         verify(opportunityApplicationRepository, never()).save(any(OpportunityApplication.class));
+    }
+
+    @Test
+    void ownerCanUpdateOpportunity() {
+        OpportunityService service = service();
+        AppUser owner = user(1L);
+        Opportunity opportunity = opportunity(50L, owner);
+
+        allowOrganizationActor(owner);
+        when(opportunityRepository.findById(50L)).thenReturn(Optional.of(opportunity));
+        when(opportunityRepository.save(any(Opportunity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.updateOpportunity(
+                50L,
+                1L,
+                new UpdateOpportunityRequest("Updated", "Bucharest", "Autumn", "New description", "React")
+        );
+
+        ArgumentCaptor<Opportunity> opportunityCaptor = ArgumentCaptor.forClass(Opportunity.class);
+        verify(opportunityRepository).save(opportunityCaptor.capture());
+        assertEquals("Updated", opportunityCaptor.getValue().getTitle());
+        assertEquals("Bucharest", opportunityCaptor.getValue().getLocation());
+        assertEquals("Autumn", opportunityCaptor.getValue().getPeriod());
+        assertEquals("New description", opportunityCaptor.getValue().getDescription());
+        assertEquals("React", opportunityCaptor.getValue().getAdditionalInfo());
+    }
+
+    @Test
+    void nonOwnerCannotUpdateOpportunity() {
+        OpportunityService service = service();
+        AppUser actor = user(2L);
+
+        allowOrganizationActor(actor);
+        when(opportunityRepository.findById(50L)).thenReturn(Optional.of(opportunity(50L, user(1L))));
+
+        assertThrows(
+                BadRequestException.class,
+                () -> service.updateOpportunity(
+                        50L,
+                        2L,
+                        new UpdateOpportunityRequest("Updated", "Bucharest", "Autumn", "New description", "React")
+                )
+        );
+        verify(opportunityRepository, never()).save(any(Opportunity.class));
+    }
+
+    @Test
+    void ownerCanDeleteOpportunityAndApplications() {
+        OpportunityService service = service();
+        AppUser owner = user(1L);
+        Opportunity opportunity = opportunity(50L, owner);
+
+        allowOrganizationActor(owner);
+        when(opportunityRepository.findById(50L)).thenReturn(Optional.of(opportunity));
+
+        service.deleteOpportunity(50L, 1L);
+
+        verify(opportunityApplicationRepository).deleteByOpportunityId(50L);
+        verify(opportunityRepository).delete(opportunity);
+    }
+
+    @Test
+    void applicantCanDeleteOwnApplication() {
+        OpportunityService service = service();
+        AppUser applicant = user(2L);
+        Opportunity opportunity = opportunity(50L, user(1L));
+        OpportunityApplication application = application(99L, opportunity, applicant, ApplicationStatus.PENDING);
+
+        allowOrganizationActor(applicant);
+        when(opportunityApplicationRepository.findById(99L)).thenReturn(Optional.of(application));
+
+        service.deleteApplication(99L, 2L);
+
+        verify(opportunityApplicationRepository).delete(application);
+    }
+
+    @Test
+    void nonApplicantCannotDeleteApplication() {
+        OpportunityService service = service();
+        AppUser actor = user(3L);
+        Opportunity opportunity = opportunity(50L, user(1L));
+        OpportunityApplication application = application(99L, opportunity, user(2L), ApplicationStatus.PENDING);
+
+        allowOrganizationActor(actor);
+        when(opportunityApplicationRepository.findById(99L)).thenReturn(Optional.of(application));
+
+        assertThrows(BadRequestException.class, () -> service.deleteApplication(99L, 3L));
+        verify(opportunityApplicationRepository, never()).delete(any(OpportunityApplication.class));
     }
 
     private OpportunityService service() {
