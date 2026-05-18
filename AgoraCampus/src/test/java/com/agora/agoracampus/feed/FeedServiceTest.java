@@ -126,17 +126,17 @@ class FeedServiceTest {
     }
 
     @Test
-    void adminCannotCreatePost() {
+    void adminCanCreatePostAsSelf() {
         PostService service = postService();
+        AppUser author = user(99L);
         authenticateAsAdmin();
 
         when(appUserRepository.existsById(99L)).thenReturn(true);
+        when(appUserRepository.findById(99L)).thenReturn(Optional.of(author));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThrows(
-                BadRequestException.class,
-                () -> service.create(99L, new CreatePostRequest(99L, "post", null))
-        );
-        verify(postRepository, never()).save(any(Post.class));
+        assertDoesNotThrow(() -> service.create(99L, new CreatePostRequest(99L, "post", null)));
+        verify(postRepository).save(any(Post.class));
     }
 
     @Test

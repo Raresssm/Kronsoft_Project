@@ -72,14 +72,21 @@ class ConnectionServiceTest {
     }
 
     @Test
-    void adminCannotCreateConnectionRequest() {
+    void adminCanCreateConnectionRequestAsSelf() {
         ConnectionService service = service();
+        AppUser requester = user(99L);
+        AppUser receiver = user(1L);
         authenticateAsAdmin();
 
-        when(appUserRepository.findById(99L)).thenReturn(Optional.of(user(99L)));
+        when(appUserRepository.findById(99L)).thenReturn(Optional.of(requester));
+        when(appUserRepository.findById(1L)).thenReturn(Optional.of(receiver));
+        when(profileRepository.findByAppUser_Id(99L)).thenReturn(Optional.of(profile(requester, ProfileType.INDIVIDUAL)));
+        when(profileRepository.findByAppUser_Id(1L)).thenReturn(Optional.of(profile(receiver, ProfileType.INDIVIDUAL)));
+        when(connectionRepository.findBetweenUsers(99L, 1L)).thenReturn(Optional.empty());
+        when(connectionRepository.save(any(Connection.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThrows(BadRequestException.class, () -> service.create(99L, new CreateConnectionRequest(99L, 1L)));
-        verify(connectionRepository, never()).save(any(Connection.class));
+        assertDoesNotThrow(() -> service.create(99L, new CreateConnectionRequest(99L, 1L)));
+        verify(connectionRepository).save(any(Connection.class));
     }
 
     @Test

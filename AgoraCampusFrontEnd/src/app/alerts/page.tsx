@@ -1,54 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/AppShell";
+import type {
+  AppUserSummary,
+  ConnectionResponse,
+  MessageResponse,
+  OpportunityApplicationResponse,
+  OpportunityResponse,
+} from "../lib/api-types";
+import { formatRelativeTime } from "../lib/api-types";
+import { useAuth } from "../lib/auth";
 
-type AlertType = "message" | "job" | "network" | "event";
+type AlertType = "message" | "job" | "network";
 type AlertFilter = "all" | "unread" | AlertType;
 
 type AlertItem = {
-  id: number;
+  id: string;
   type: AlertType;
   title: string;
   body: string;
   time: string;
+  timestamp: string;
   read: boolean;
+  action?: {
+    label: string;
+    href: string;
+  };
+  messageId?: number;
 };
-
-const initialAlerts: AlertItem[] = [
-  {
-    id: 1,
-    type: "message",
-    title: "New message from Alex Radu",
-    body: "Perfect, let's sync tomorrow at 10.",
-    time: "5 min ago",
-    read: false,
-  },
-  {
-    id: 2,
-    type: "job",
-    title: "Frontend Internship matched your interests",
-    body: "Kronsoft is looking for React and TypeScript skills.",
-    time: "28 min ago",
-    read: false,
-  },
-  {
-    id: 3,
-    type: "network",
-    title: "Cristina Barbu sent a connection request",
-    body: "You have 7 mutual connections.",
-    time: "1 hour ago",
-    read: true,
-  },
-  {
-    id: 4,
-    type: "event",
-    title: "Portfolio review starts soon",
-    body: "Bring one project and one question for mentors.",
-    time: "Yesterday",
-    read: true,
-  },
-];
 
 const filters: { value: AlertFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -56,13 +36,140 @@ const filters: { value: AlertFilter; label: string }[] = [
   { value: "message", label: "Messages" },
   { value: "job", label: "Jobs" },
   { value: "network", label: "Network" },
-  { value: "event", label: "Events" },
 ];
 
 export default function Alerts() {
-  const [alerts, setAlerts] = useState<AlertItem[]>(initialAlerts);
+  const { appUser, apiFetch } = useAuth();
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [localReadIds, setLocalReadIds] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState<AlertFilter>("all");
   const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadAlerts = useCallback(async () => {
+    if (!appUser) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const [usersResponse, connectionsResponse, messagesResponse, opportunitiesResponse, myApplicationsResponse] =
+        await Promise.all([
+          apiFetch("/api/users"),
+          apiFetch(`/api/connections/incoming/${appUser.id}/pending?actingUserId=${appUser.id}`),
+          apiFetch(`/api/messages/incoming/${appUser.id}/unread?actingUserId=${appUser.id}`),
+          apiFetch(`/api/opportunities?actingUserId=${appUser.id}`),
+          apiFetch(`/api/opportunities/applications/users/${appUser.id}?actingUserId=${appUser.id}`),
+        ]);
+
+      if (!usersResponse.ok) throw new Error(`Could not load users (${usersResponse.status}).`);
+      if (!connectionsResponse.ok) throw new Error(`Could not load connection alerts (${connectionsResponse.status}).`);
+      if (!messagesResponse.ok) throw new Error(`Could not load message alerts (${messagesResponse.status}).`);
+      if (!opportunitiesResponse.ok) throw new Error(`Could not load job alerts (${opportunitiesResponse.status}).`);
+      if (!myApplicationsResponse.ok) throw new Error(`Could not load application alerts (${myApplicationsResponse.status}).`);
+
+      const users = (await usersResponse.json()) as AppUserSummary[];
+      const userNames = Object.fromEntries(users.map((user) => [user.id, user.displayName || user.username]));
+      const connections = (await connectionsResponse.json()) as ConnectionResponse[];
+      const messages = (await messagesResponse.json()) as MessageResponse[];
+      const opportunities = (await opportunitiesResponse.json()) as OpportunityResponse[];
+      const myApplications = (await myApplicationsResponse.json()) as OpportunityApplicationResponse[];
+      const ownedOpportunities = opportunities.filter((opportunity) => opportunity.postedByUserId === appUser.id);
+
+      const applicationsForOwnedOpportunities = await Promise.all(
+        ownedOpportunities.map(async (opportunity) => {
+          const response = await apiFetch(
+            `/api/opportunities/${opportunity.opportunityId}/applications?actingUserId=${appUser.id}`,
+          );
+          if (!response.ok) return [];
+          const applications = (await response.json()) as OpportunityApplicationResponse[];
+          return applications.map((application) => ({ application, opportunity }));
+        }),
+      );
+
+      const opportunityById = Object.fromEntries(
+        opportunities.map((opportunity) => [opportunity.opportunityId, opportunity]),
+      );
+
+      const nextAlerts: AlertItem[] = [
+        ...messages.map((message) =>
+          withLocalRead(
+            {
+              id: `message-${message.messageId}`,
+              type: "message" as const,
+              title: `New message from ${userNames[message.senderUserId] ?? "Unknown user"}`,
+              body: message.content,
+              time: formatRelativeTime(message.sentAt),
+              timestamp: message.sentAt,
+              read: Boolean(message.acknowledged),
+              action: { label: "Open messages", href: "/messages" },
+              messageId: message.messageId,
+            },
+            localReadIds,
+          ),
+        ),
+        ...connections.map((connection) =>
+          withLocalRead(
+            {
+              id: `connection-${connection.connectionId}`,
+              type: "network" as const,
+              title: `${userNames[connection.requesterUserId] ?? "Someone"} sent a connection request`,
+              body: "Review the request from your network page.",
+              time: formatRelativeTime(connection.createdAt),
+              timestamp: connection.createdAt,
+              read: false,
+              action: { label: "Open network", href: "/network" },
+            },
+            localReadIds,
+          ),
+        ),
+        ...myApplications.map((application) => {
+          const opportunity = opportunityById[application.opportunityId];
+          return withLocalRead(
+            {
+              id: `my-application-${application.applicationId}-${application.status}`,
+              type: "job" as const,
+              title: `Application ${application.status.toLowerCase()}`,
+              body: opportunity
+                ? `${opportunity.title} is currently ${application.status.toLowerCase()}.`
+                : `Your application is currently ${application.status.toLowerCase()}.`,
+              time: formatRelativeTime(application.appliedAt),
+              timestamp: application.appliedAt,
+              read: application.status === "PENDING",
+              action: { label: "Open jobs", href: "/jobs" },
+            },
+            localReadIds,
+          );
+        }),
+        ...applicationsForOwnedOpportunities.flat().map(({ application, opportunity }) =>
+          withLocalRead(
+            {
+              id: `owned-application-${application.applicationId}`,
+              type: "job" as const,
+              title: `${application.applicantUsername} applied`,
+              body: `${application.applicantUsername} applied to ${opportunity.title}.`,
+              time: formatRelativeTime(application.appliedAt),
+              timestamp: application.appliedAt,
+              read: application.status !== "PENDING",
+              action: { label: "Review application", href: "/jobs" },
+            },
+            localReadIds,
+          ),
+        ),
+      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      setAlerts(nextAlerts);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Could not load alerts.");
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFetch, appUser, localReadIds]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadAlerts());
+  }, [loadAlerts]);
 
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -81,18 +188,27 @@ export default function Alerts() {
 
   const unreadCount = alerts.filter((alert) => !alert.read).length;
 
-  const markAllRead = () => {
-    setAlerts((currentAlerts) => currentAlerts.map((alert) => ({ ...alert, read: true })));
+  const markRead = async (alert: AlertItem) => {
+    if (alert.messageId && appUser) {
+      await apiFetch(`/api/messages/${alert.messageId}/read?actingUserId=${appUser.id}`, {
+        method: "PATCH",
+      }).catch(() => undefined);
+    }
+
+    setLocalReadIds((current) => new Set(current).add(alert.id));
+    setAlerts((currentAlerts) =>
+      currentAlerts.map((currentAlert) =>
+        currentAlert.id === alert.id ? { ...currentAlert, read: true } : currentAlert,
+      ),
+    );
+  };
+
+  const markAllRead = async () => {
+    await Promise.all(visibleAlerts.filter((alert) => !alert.read).map(markRead));
   };
 
   const clearRead = () => {
     setAlerts((currentAlerts) => currentAlerts.filter((alert) => !alert.read));
-  };
-
-  const toggleRead = (id: number) => {
-    setAlerts((currentAlerts) =>
-      currentAlerts.map((alert) => (alert.id === id ? { ...alert, read: !alert.read } : alert)),
-    );
   };
 
   return (
@@ -152,58 +268,91 @@ export default function Alerts() {
               <h2 className="text-lg font-semibold text-[#143b5d]">Notification Center</h2>
               <p className="text-sm text-slate-600">{visibleAlerts.length} alerts visible</p>
             </div>
-            <span className="rounded-full bg-[#143b5d]/10 px-3 py-1 text-xs font-semibold text-[#143b5d]">
-              {activeFilter === "all"
-                ? "All alerts"
-                : filters.find((filter) => filter.value === activeFilter)?.label}
-            </span>
+            <button
+              type="button"
+              onClick={loadAlerts}
+              className="rounded-full bg-[#143b5d]/10 px-3 py-1 text-xs font-semibold text-[#143b5d] transition hover:bg-[#143b5d]/15"
+            >
+              Refresh
+            </button>
           </div>
 
           <div className="mt-4 space-y-3">
-            {visibleAlerts.map((alert) => (
-              <article
-                key={alert.id}
-                className={[
-                  "rounded-3xl border p-4 shadow-sm transition",
-                  alert.read ? "border-slate-200 bg-white" : "border-[#143b5d]/20 bg-[#143b5d]/5",
-                ].join(" ")}
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold capitalize text-[#143b5d]">
-                        {alert.type}
-                      </span>
-                      {!alert.read && (
-                        <span className="rounded-full bg-[#143b5d] px-2.5 py-1 text-xs font-semibold text-white">
-                          New
+            {loading && <EmptyState title="Loading alerts" body="Checking messages, network, and jobs." />}
+
+            {error && (
+              <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {error}
+              </div>
+            )}
+
+            {!loading &&
+              visibleAlerts.map((alert) => (
+                <article
+                  key={alert.id}
+                  className={[
+                    "rounded-3xl border p-4 shadow-sm transition",
+                    alert.read ? "border-slate-200 bg-white" : "border-[#143b5d]/20 bg-[#143b5d]/5",
+                  ].join(" ")}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold capitalize text-[#143b5d]">
+                          {alert.type}
                         </span>
+                        {!alert.read && (
+                          <span className="rounded-full bg-[#143b5d] px-2.5 py-1 text-xs font-semibold text-white">
+                            New
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="mt-3 font-semibold text-[#143b5d]">{alert.title}</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-700">{alert.body}</p>
+                      <p className="mt-2 text-xs text-slate-500">{alert.time}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      {alert.action && (
+                        <a
+                          href={alert.action.href}
+                          className="h-10 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          {alert.action.label}
+                        </a>
+                      )}
+                      {!alert.read && (
+                        <button
+                          type="button"
+                          onClick={() => void markRead(alert)}
+                          className="h-10 rounded-full bg-[#143b5d] px-4 text-sm font-semibold text-white hover:bg-[#1d5485]"
+                        >
+                          Mark read
+                        </button>
                       )}
                     </div>
-                    <h3 className="mt-3 font-semibold text-[#143b5d]">{alert.title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-700">{alert.body}</p>
-                    <p className="mt-2 text-xs text-slate-500">{alert.time}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => toggleRead(alert.id)}
-                    className="h-10 shrink-0 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    {alert.read ? "Mark unread" : "Mark read"}
-                  </button>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
 
-            {visibleAlerts.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 px-6 py-12 text-center">
-                <h2 className="font-semibold text-[#143b5d]">No alerts found</h2>
-                <p className="mt-1 text-sm text-slate-600">Try a different filter or search term.</p>
-              </div>
+            {!loading && visibleAlerts.length === 0 && (
+              <EmptyState title="No alerts found" body="There are no matching backend alerts right now." />
             )}
           </div>
         </section>
       </div>
     </AppShell>
+  );
+}
+
+function withLocalRead(alert: AlertItem, localReadIds: Set<string>) {
+  return localReadIds.has(alert.id) ? { ...alert, read: true } : alert;
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 px-6 py-12 text-center">
+      <h2 className="font-semibold text-[#143b5d]">{title}</h2>
+      <p className="mt-1 text-sm text-slate-600">{body}</p>
+    </div>
   );
 }

@@ -115,14 +115,19 @@ class MessageServiceTest {
     }
 
     @Test
-    void adminCannotSendMessages() {
+    void adminCanSendMessagesAsSelf() {
         MessageService service = service();
+        AppUser sender = user(99L);
+        AppUser receiver = user(2L);
         authenticateAsAdmin();
 
         when(appUserRepository.existsById(99L)).thenReturn(true);
+        when(appUserRepository.findById(99L)).thenReturn(Optional.of(sender));
+        when(appUserRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThrows(BadRequestException.class, () -> service.send(99L, new CreateMessageRequest(99L, 2L, "hello")));
-        verify(messageRepository, never()).save(any(Message.class));
+        assertDoesNotThrow(() -> service.send(99L, new CreateMessageRequest(99L, 2L, "hello")));
+        verify(messageRepository).save(any(Message.class));
     }
 
     @Test

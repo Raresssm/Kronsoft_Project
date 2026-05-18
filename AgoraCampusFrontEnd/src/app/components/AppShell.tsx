@@ -135,7 +135,7 @@ export function AppShell({
 
           <div className="order-4 ml-auto flex items-center gap-2 lg:order-none lg:ml-0">
             <div className="hidden min-w-0 text-right text-[#143b5d] sm:block">
-              <p className="truncate text-xs font-semibold">{appUser?.username ?? "Signed in"}</p>
+              <p className="truncate text-xs font-semibold">{appUser?.displayName ?? appUser?.username ?? "Signed in"}</p>
               <p className="truncate text-[11px] text-[#143b5d]/70">{appUser?.email}</p>
             </div>
             <button

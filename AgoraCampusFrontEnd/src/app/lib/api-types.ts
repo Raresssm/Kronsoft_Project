@@ -83,6 +83,54 @@ export type MessageResponse = {
   acknowledged: boolean;
 };
 
+export type BackgroundResponse = {
+  backgroundId: number;
+  individualProfileId: number;
+  firstName: string | null;
+  lastName: string | null;
+  headline: string | null;
+  profilePicture: string | null;
+  type: "EDUCATION" | "WORK_EXPERIENCE" | "PROJECT";
+  title: string;
+  description: string | null;
+  startDate: string;
+  endDate: string | null;
+  currentlyOngoing: boolean;
+};
+
+export type IndividualProfileResponse = {
+  id: number;
+  profileId: number;
+  headline: string | null;
+  description: string | null;
+  location: string | null;
+  website: string | null;
+  profilePicture: string | null;
+  coverImage: string | null;
+  updatedAt: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  cvDocument: string | null;
+  backgrounds: BackgroundResponse[];
+};
+
+export type OrganizationProfileResponse = {
+  id: number;
+  profileId: number;
+  headline: string | null;
+  description: string | null;
+  location: string | null;
+  website: string | null;
+  profilePicture: string | null;
+  coverImage: string | null;
+  updatedAt: string | null;
+  organizationName: string | null;
+  phone: string | null;
+  industry: string | null;
+  specialties: string | null;
+};
+
 export function formatRelativeTime(value: string) {
   const then = new Date(value).getTime();
   if (Number.isNaN(then)) {

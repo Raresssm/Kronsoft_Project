@@ -35,8 +35,7 @@ public class IndividualProfileService {
     private final IndividualProfileMapper individualProfileMapper;
     private final AppUserRepository appUserRepository;
 
-
-
+    @Transactional
     public IndividualProfileResponse getByProfileId(Long profileId, Long actingUserId) {
         resolveActorRole(actingUserId);
         IndividualProfile profile = individualProfileRepository

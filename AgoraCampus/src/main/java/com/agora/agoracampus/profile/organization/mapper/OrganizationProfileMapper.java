@@ -63,7 +63,6 @@ public class OrganizationProfileMapper {
         if(dto.description()!=null) profile.setDescription(dto.description());
 
 
-        if (dto.website() != null) org.setOrganizationName(dto.organizationName());
         if (dto.organizationName() != null) org.setOrganizationName(dto.organizationName());
         if (dto.phone() != null) org.setPhone(dto.phone());
         if (dto.specialties() != null) org.setSpecialties(dto.specialties());

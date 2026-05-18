@@ -40,7 +40,7 @@ public class OrganizationProfileService {
     public OrganizationProfileResponse getByProfileId(Long profileId, Long actingUserId) {
         resolveActorRole(actingUserId);
         OrganizationProfile org = organizationProfileRepository
-                .findById(profileId)
+                .findByProfile_Id(profileId)
                 .orElseThrow(() -> new NotFoundException("Organization profile not found with profile id: " + profileId));
         return organizationProfileMapper.toResponse(org);
     }

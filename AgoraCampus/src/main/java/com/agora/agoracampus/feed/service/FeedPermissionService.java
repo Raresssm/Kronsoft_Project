@@ -62,7 +62,7 @@ public class FeedPermissionService {
             Long targetUserId,
             String message
     ) {
-        if (actor.role() == FeedActorRole.ADMIN || !actingUserId.equals(targetUserId)) {
+        if (!actingUserId.equals(targetUserId)) {
             throw new BadRequestException(message);
         }
     }

@@ -13,8 +13,8 @@ public class ProfileMapper {
 
         public ProfileResponse toResponse(Profile profile) {
             return new ProfileResponse(
-                    profile.getAppUser().getId(),
                     profile.getId(),
+                    profile.getAppUser().getId(),
                     profile.getHeadline(),
                     profile.getDescription(),
                     profile.getLocation(),

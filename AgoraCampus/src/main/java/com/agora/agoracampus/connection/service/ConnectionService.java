@@ -82,9 +82,6 @@ public class ConnectionService {
         if (request.requesterUserId().equals(request.receiverUserId())) {
             throw new BadRequestException("Users cannot connect to themselves.");
         }
-        if (actorRole == ConnectionActorRole.ADMIN) {
-            throw new BadRequestException("Admins cannot create connection requests.");
-        }
         if (!actingUserId.equals(request.requesterUserId())) {
             throw new BadRequestException("The acting user must be the requester.");
         }

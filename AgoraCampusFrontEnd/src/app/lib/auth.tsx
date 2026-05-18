@@ -57,6 +57,7 @@ type AuthContextValue = {
   refreshToken: () => Promise<string>;
   apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
   ensureAppUser: () => Promise<AppUser | null>;
+  refreshAppUser: () => Promise<AppUser | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -288,6 +289,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return provisionAppUser(session, readStoredAccountType());
   }, [provisionAppUser, session]);
 
+  const refreshAppUser = useCallback(async () => {
+    if (!session) {
+      setAppUser(null);
+      return null;
+    }
+
+    const accessToken = await refreshToken();
+    const response = await fetch(`${apiBaseUrl}/api/users/me`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to refresh current app user (${response.status}).`);
+    }
+
+    const currentUser = (await response.json()) as AppUser;
+    setAppUser(currentUser);
+    return currentUser;
+  }, [refreshToken, session]);
+
   const login = useCallback(
     async (username: string, password: string, accountType: "INDIVIDUAL" | "ORGANIZATION" = readStoredAccountType()) => {
       setError("");
@@ -382,8 +405,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshToken,
       apiFetch,
       ensureAppUser,
+      refreshAppUser,
     }),
-    [initialized, authenticated, appUser, session?.accessToken, error, login, register, logout, refreshToken, apiFetch, ensureAppUser],
+    [initialized, authenticated, appUser, session?.accessToken, error, login, register, logout, refreshToken, apiFetch, ensureAppUser, refreshAppUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

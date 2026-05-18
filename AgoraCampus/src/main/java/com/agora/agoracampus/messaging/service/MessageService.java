@@ -83,9 +83,6 @@ public class MessageService {
         if (request.senderUserId().equals(request.receiverUserId())) {
             throw new BadRequestException("Sender and receiver must be different users.");
         }
-        if (actor.role() == MessageActorRole.ADMIN) {
-            throw new BadRequestException("Admins cannot send messages.");
-        }
         if (!actingUserId.equals(request.senderUserId())) {
             throw new BadRequestException("The acting user must be the sender.");
         }
