@@ -14,6 +14,8 @@ Open the frontend at `http://localhost:3000` and use `admin` / `admin`, `demo` /
 
 The script builds and starts Postgres, Keycloak, the Spring Boot API, and the Next.js frontend. It also waits until the services are actually reachable, which avoids login errors caused by opening the frontend while Keycloak is still starting.
 
+The Docker demo database also includes seeded individual users, organization users, profiles, posts, jobs, applications, one connection, and one message so the app is not empty on a fresh start.
+
 If PowerShell blocks the script, run this once in the same terminal:
 
 ```powershell
@@ -188,8 +190,13 @@ Dev users:
 - `carmen@agora.com` / `password`
 - `david@agora.com` / `password`
 - `emma@agora.com` / `password`
+- `techlab@agora.com` / `password`
+- `greenteam@agora.com` / `password`
+- `careers@agora.com` / `password`
 
-These users are imported into Keycloak when the local Docker volume is created. The matching app profile is created automatically the first time each user logs into the frontend.
+The `techlab`, `greenteam`, and `careers` accounts are organization accounts. The others are individual accounts.
+
+These users are imported into Keycloak when the local Docker volume is created. In Docker, the app database is also seeded with matching profiles, sample posts, opportunities, applications, a connection, and a message. When you create your own accounts or data, they stay in the Docker volume until you run `docker compose down -v`.
 
 If you already have an existing local Docker volume, new seed users are not imported into that old volume. Run `docker compose down -v` once, then `.\scripts\start-app.ps1`, to recreate the local dev database from the seed file.
 
