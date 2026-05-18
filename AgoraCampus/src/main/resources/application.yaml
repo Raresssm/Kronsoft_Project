@@ -24,6 +24,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8090/realms/agora-campus}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8090/realms/agora-campus/protocol/openid-connect/certs}
 
 app:
   cors:

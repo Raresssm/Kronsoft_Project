@@ -4,92 +4,115 @@ Spring Boot API with PostgreSQL, Keycloak JWT auth, Flyway migrations, and a Nex
 
 ## Quick Start
 
-If you just want to launch everything locally, run these three steps from the repository root:
+If you just want to run the finished app locally, use Docker from the repository root:
 
-1. `docker-compose up -d`
-2. `.\scripts\dev-backend.ps1`
-3. `cd AgoraCampusFrontEnd && npm.cmd install && npm.cmd run dev`
+```powershell
+.\scripts\start-app.ps1
+```
 
-Open the frontend at `http://localhost:3000` and use the seeded `admin` / `admin` or `demo` / `demo` accounts.
+Open the frontend at `http://localhost:3000` and use `admin` / `admin`, `demo` / `demo`, or create a new account from the app.
+
+The script builds and starts Postgres, Keycloak, the Spring Boot API, and the Next.js frontend. It also waits until the services are actually reachable, which avoids login errors caused by opening the frontend while Keycloak is still starting.
+
+If PowerShell blocks the script, run this once in the same terminal:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\start-app.ps1
+```
+
+Without the helper script, the equivalent command is:
+
+```powershell
+docker compose up --build -d
+```
+
+If your Docker Desktop uses the older Compose command, replace `docker compose` with `docker-compose`.
+
+Then wait until these URLs load:
+
+- Frontend: `http://localhost:3000`
+- Backend Swagger: `http://localhost:8080/swagger-ui.html`
+- Keycloak: `http://localhost:8090/realms/agora-campus`
 
 ## Requirements
 
-- Java 21
-- Maven
 - Docker Desktop
-- Node.js and npm
 
-On Windows PowerShell, use `npm.cmd` instead of `npm` if script execution policy blocks `npm.ps1`.
+Java, Maven, Node.js, and npm are only required if you want to run the backend or frontend manually for development.
 
-## Run The App Locally
+## Run The App With Docker
 
-Run the backend dependencies, backend API, and frontend in separate terminals.
+This is the recommended path for teammates, demos, and mentors.
 
-### 1. Start Postgres And Keycloak
+### Start Everything
 
 From the repository root:
 
 ```powershell
 cd C:\path\to\Kronsoft_Project
-docker-compose up -d
+.\scripts\start-app.ps1
 ```
 
-Wait until both containers are healthy:
-
-```powershell
-docker-compose ps
-```
-
-Default ports:
+Docker Compose starts these services:
 
 - PostgreSQL: `localhost:5432`
 - Keycloak: `http://localhost:8090`
+- Backend API: `http://localhost:8080`
+- Frontend: `http://localhost:3000`
 
-If you already have a local PostgreSQL running on `5432`, create a local `.env` file at the repository root:
+The first run can take several minutes because Docker has to download base images and build the backend/frontend images.
 
-```env
-POSTGRES_PORT=5433
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=agora_campus
-
-KEYCLOAK_PORT=8090
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=admin
-
-DB_URL=jdbc:postgresql://127.0.0.1:5433/agora_campus
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-```
-
-Then restart Docker Compose:
+To inspect the services:
 
 ```powershell
-docker-compose down
-docker-compose up -d
+docker compose ps
 ```
 
-`.env` is local-only and must not be committed.
+`docker compose up -d` may print `2/2`, `3/3`, or more depending on whether Docker had to create the network during that run. That number is not a health check. Use `docker compose ps` or the helper script output to confirm readiness.
+
+### Fresh Reset
+
+If a teammate has an old Keycloak/Postgres volume from a previous version, reset once:
+
+```powershell
+docker compose down -v
+.\scripts\start-app.ps1
+```
+
+This deletes only local Docker development data. It does not affect the repository.
+
+### Port Changes
+
+If a port is already used, copy `.env.example` to `.env` and change the needed port:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+For the simplest demo setup, leave the defaults unless your machine already uses `3000`, `5432`, `8080`, or `8090`.
+
+## Run The App Manually For Development
+
+Use this only if you want live backend/frontend development outside Docker.
+
+### 1. Start Postgres And Keycloak
+
+```powershell
+docker compose up -d postgres keycloak
+```
+
+Wait until Keycloak loads:
+
+```powershell
+Invoke-WebRequest http://localhost:8090/realms/agora-campus
+```
 
 ### 2. Start The Backend API
 
-From a new PowerShell terminal, use the backend script from the repository root:
-
 ```powershell
-cd C:\path\to\Kronsoft_Project
 .\scripts\dev-backend.ps1
 ```
-
-The script loads `.env` before starting Spring Boot, so it uses `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and Keycloak settings from the same file as Docker Compose.
-
-If PowerShell blocks the script, run this once in that terminal:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\dev-backend.ps1
-```
-
-Starting the backend with plain `mvn spring-boot:run` from `AgoraCampus` is only safe when you are using the default database URL. If your `.env` maps PostgreSQL to `5433`, plain Maven will fall back to `localhost:5432` unless you manually set the environment variables first.
 
 Backend URLs:
 
@@ -97,62 +120,10 @@ Backend URLs:
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - API root `http://localhost:8080` may return `401 Unauthorized`; this is expected.
 
-### Use Swagger With Keycloak
-
-Logging into Keycloak in a separate browser tab does not authenticate Swagger API calls. Swagger must obtain its own access token and send it as a Bearer token.
-
-In Swagger UI:
-
-1. Open `http://localhost:8080/swagger-ui.html`.
-2. Click **Authorize**.
-3. Choose the `oauth2` authorization option.
-4. Use client `agora-swagger-ui`; no client secret is needed.
-5. Select scopes `openid` and `profile`, then authorize.
-6. Log in with `admin` / `admin` or `demo` / `demo`.
-7. After Swagger returns to the API page, call `GET /api/users/me`.
-
-If `GET /api/users/me` returns `401`, check that Swagger shows the endpoint as authorized and that the generated request includes an `Authorization: Bearer ...` header.
-
-If `GET /api/users/me` returns `404`, authentication worked, but the logged-in Keycloak account does not yet have an app user row in the `app_users` table. Create it with `POST /api/users` while still authorized in Swagger.
-
-For the `admin` Keycloak user, use:
-
-```json
-{
-  "email": "admin@agora.local",
-  "username": "admin"
-}
-```
-
-For the `demo` Keycloak user, use:
-
-```json
-{
-  "email": "demo@agora.local",
-  "username": "demo"
-}
-```
-
-After `POST /api/users` returns `201 Created`, call `GET /api/users/me` again. It should return the current app user:
-
-```json
-{
-  "id": 1,
-  "keycloakId": "...",
-  "email": "admin@agora.local",
-  "username": "admin",
-  "createdAt": "..."
-}
-```
-
-Use the returned `id` value as `actingUserId` on endpoints that ask which app user is performing the action.
-
 ### 3. Start The Frontend
 
-From a new terminal:
-
 ```powershell
-cd C:\path\to\Kronsoft_Project\AgoraCampusFrontEnd
+cd AgoraCampusFrontEnd
 npm.cmd install
 npm.cmd run dev
 ```
@@ -161,18 +132,7 @@ Frontend URL:
 
 - `http://localhost:3000`
 
-The frontend uses the Keycloak client `agora-frontend` behind its own login form and calls the backend at `http://localhost:8080`.
-
-Default frontend environment values:
-
-```env
-NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8090
-NEXT_PUBLIC_KEYCLOAK_REALM=agora-campus
-NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=agora-frontend
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
-
-You only need to create `AgoraCampusFrontEnd/.env.local` if you want to override those defaults.
+## Login And Account Creation
 
 Login flow:
 
@@ -192,9 +152,25 @@ Create account flow:
 3. The frontend calls `POST /api/auth/register`.
 4. The backend creates the Keycloak account, then the frontend logs in with the same credentials and creates the matching app user row if needed.
 
-If account creation returns `401` or says registration is not enabled on the running backend, stop the backend process on `8080` and start it again. That means the frontend is still talking to an older backend process that does not include the public `POST /api/auth/register` endpoint.
+If account creation returns `401` or says registration is not enabled on the running backend, restart the backend container with `docker compose restart backend`. That means the frontend is still talking to an older backend process that does not include the public `POST /api/auth/register` endpoint.
 
-The `agora-frontend` Keycloak client must have **Direct Access Grants** enabled for the frontend login form. The realm import file already sets this for new local environments. If an existing local Keycloak volume was created before this setting changed, either enable it in the Keycloak admin console or reset local volumes with `docker-compose down -v`.
+The `agora-frontend` Keycloak client must have **Direct Access Grants** enabled for the frontend login form. The realm import file already sets this for new local environments. If an existing local Keycloak volume was created before this setting changed, either enable it in the Keycloak admin console or reset local volumes with `docker compose down -v`.
+
+## Use Swagger With Keycloak
+
+You do not need Swagger authorization to use the frontend. The frontend gets its own token from Keycloak.
+
+Swagger authorization is only needed when calling protected API endpoints directly from `http://localhost:8080/swagger-ui.html`.
+
+In Swagger UI:
+
+1. Open `http://localhost:8080/swagger-ui.html`.
+2. Click **Authorize**.
+3. Choose the `oauth2` authorization option.
+4. Use client `agora-swagger-ui`; no client secret is needed.
+5. Select scopes `openid` and `profile`, then authorize.
+6. Log in with `admin` / `admin` or `demo` / `demo`.
+7. After Swagger returns to the API page, call `GET /api/users/me`.
 
 ## Keycloak Development Data
 
@@ -207,15 +183,24 @@ Dev users:
 
 - `admin` / `admin`
 - `demo` / `demo`
+- `alice@agora.com` / `password`
+- `bogdan@agora.com` / `password`
+- `carmen@agora.com` / `password`
+- `david@agora.com` / `password`
+- `emma@agora.com` / `password`
+
+These users are imported into Keycloak when the local Docker volume is created. The matching app profile is created automatically the first time each user logs into the frontend.
+
+If you already have an existing local Docker volume, new seed users are not imported into that old volume. Run `docker compose down -v` once, then `.\scripts\start-app.ps1`, to recreate the local dev database from the seed file.
 
 If `demo` / `demo` does not work, try `demo@agora.local` / `demo`. If it still fails, your local Keycloak database was probably created before the `demo` user existed in the realm import file. Keycloak does not overwrite an existing imported realm every time Docker starts.
 
 To reset only the local `demo` password, run this after Keycloak is up:
 
 ```powershell
-docker-compose exec -T keycloak /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin
-docker-compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get users -r agora-campus -q username=demo --fields id,username --format csv --noquotes
-docker-compose exec -T keycloak /opt/keycloak/bin/kcadm.sh set-password -r agora-campus --userid <demo-user-id> --new-password demo
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh get users -r agora-campus -q username=demo --fields id,username --format csv --noquotes
+docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh set-password -r agora-campus --userid <demo-user-id> --new-password demo
 ```
 
 Replace `<demo-user-id>` with the ID printed by the second command.
@@ -223,8 +208,8 @@ Replace `<demo-user-id>` with the ID printed by the second command.
 To force a completely fresh dev import instead, wipe the Docker volumes and start again:
 
 ```powershell
-docker-compose down -v
-docker-compose up -d
+docker compose down -v
+.\scripts\start-app.ps1
 ```
 
 The full reset deletes the local dev Postgres data, including Keycloak data and app database rows. Use it only when you are fine with resetting local development data.
@@ -421,13 +406,17 @@ erDiagram
 
 ## Stop The App
 
-Stop the frontend and backend API with `Ctrl+C` in their terminals.
-
-Stop Postgres and Keycloak from the repository root:
+From the repository root:
 
 ```powershell
-docker-compose down
+.\scripts\stop-app.ps1
 ```
+
+This stops the containers and preserves the database.
+
+Do not use `down -v` for normal stopping. The `-v` flag deletes the Docker volume, which deletes local accounts, profiles, posts, opportunities, messages, and Keycloak changes.
+
+If you are using the manual development mode, stop the backend and frontend with `Ctrl+C` in their terminals.
 
 ## Tests
 
@@ -449,7 +438,8 @@ npm.cmd run build
 ## Troubleshooting
 
 - **Port already in use:** stop any existing process on `5432`, `8080`, `8090`, or `3000`, or change the mapped port in `.env`.
-- **Old Keycloak data:** if seeded users or clients are missing, run `docker-compose down -v` and start again.
-- **Frontend auth issues:** make sure the backend is started with `.\scripts\dev-backend.ps1`, not plain `mvn spring-boot:run`, if you rely on `.env` values.
+- **Keycloak token request fails with `ERR_CONNECTION_REFUSED`:** Keycloak is not reachable yet at `http://localhost:8090`. Use `.\scripts\start-app.ps1`, or wait until `http://localhost:8090/realms/agora-campus` loads before logging in.
+- **Old Keycloak data:** if seeded users or clients are missing, run `docker compose down -v` and then `.\scripts\start-app.ps1`.
+- **Manual frontend auth issues:** make sure the backend is started with `.\scripts\dev-backend.ps1`, not plain `mvn spring-boot:run`, if you rely on `.env` values.
 
 

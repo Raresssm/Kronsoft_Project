@@ -63,6 +63,86 @@
         }
       ],
       "realmRoles": ["user"]
+    },
+    {
+      "username": "alice@agora.com",
+      "enabled": true,
+      "email": "alice@agora.com",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Ionescu",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "bogdan@agora.com",
+      "enabled": true,
+      "email": "bogdan@agora.com",
+      "emailVerified": true,
+      "firstName": "Bogdan",
+      "lastName": "Popescu",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "carmen@agora.com",
+      "enabled": true,
+      "email": "carmen@agora.com",
+      "emailVerified": true,
+      "firstName": "Carmen",
+      "lastName": "Marin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "david@agora.com",
+      "enabled": true,
+      "email": "david@agora.com",
+      "emailVerified": true,
+      "firstName": "David",
+      "lastName": "Stan",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "emma@agora.com",
+      "enabled": true,
+      "email": "emma@agora.com",
+      "emailVerified": true,
+      "firstName": "Emma",
+      "lastName": "Dumitrescu",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
     }
   ],
   "clients": [
