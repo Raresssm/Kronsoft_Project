@@ -465,8 +465,12 @@ export default function Jobs() {
               </label>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100">
-                  Cancel
+                <button
+                  type="button"
+                  onClick={() => setForm(emptyForm)}
+                  className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Reset
                 </button>
                 <button type="submit" className="rounded-full bg-[#143b5d] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1d5485]">
                   Create
