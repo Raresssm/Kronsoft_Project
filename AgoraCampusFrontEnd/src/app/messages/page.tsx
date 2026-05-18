@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/AppShell";
-import { AppUserSummary, formatRelativeTime, MessageResponse } from "../lib/api-types";
+import { AppUserSummary, ConnectionResponse, formatRelativeTime, MessageResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 
 export default function Messages() {
@@ -20,13 +20,32 @@ export default function Messages() {
     if (!appUser) return;
 
     setError("");
-    const response = await apiFetch("/api/users");
-    if (!response.ok) {
-      setError(`Could not load users (${response.status}).`);
+    const [usersResponse, connectionsResponse] = await Promise.all([
+      apiFetch("/api/users"),
+      apiFetch(`/api/connections/users/${appUser.id}?actingUserId=${appUser.id}`),
+    ]);
+
+    if (!usersResponse.ok) {
+      setError(`Could not load users (${usersResponse.status}).`);
+      setLoading(false);
       return;
     }
 
-    const nextUsers = ((await response.json()) as AppUserSummary[]).filter((user) => user.id !== appUser.id);
+    if (!connectionsResponse.ok) {
+      setError(`Could not load connections (${connectionsResponse.status}).`);
+      setLoading(false);
+      return;
+    }
+
+    const acceptedConnections = ((await connectionsResponse.json()) as ConnectionResponse[])
+      .filter((connection) => connection.status === "ACCEPTED");
+    const connectedUserIds = new Set(
+      acceptedConnections.map((connection) =>
+        connection.requesterUserId === appUser.id ? connection.receiverUserId : connection.requesterUserId,
+      ),
+    );
+    const nextUsers = ((await usersResponse.json()) as AppUserSummary[])
+      .filter((user) => user.id !== appUser.id && connectedUserIds.has(user.id));
     setUsers(nextUsers);
 
     const requestedUserId = Number(new URLSearchParams(window.location.search).get("userId"));
@@ -34,11 +53,21 @@ export default function Messages() {
       setActiveUserId(requestedUserId);
     } else if (!activeUserId && nextUsers.length > 0) {
       setActiveUserId(nextUsers[0].id);
+    } else if (activeUserId && !nextUsers.some((user) => user.id === activeUserId)) {
+      setActiveUserId(nextUsers[0]?.id ?? null);
+    } else if (nextUsers.length === 0) {
+      setActiveUserId(null);
+      setMessages([]);
+      setLoading(false);
     }
   }, [activeUserId, apiFetch, appUser]);
 
   const loadConversation = useCallback(async () => {
-    if (!appUser || !activeUserId) return;
+    if (!appUser || !activeUserId) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -101,7 +130,7 @@ export default function Messages() {
         <aside className="flex min-h-[360px] flex-col overflow-hidden rounded-3xl border border-white/20 bg-white/80 shadow-2xl backdrop-blur-xl lg:max-h-[calc(100vh-120px)]">
           <div className="border-b border-slate-200 p-4">
             <h1 className="text-lg font-semibold text-[#143b5d]">Messages</h1>
-            <p className="text-sm text-slate-600">Private conversations</p>
+            <p className="text-sm text-slate-600">Private conversations with your connections</p>
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -125,6 +154,9 @@ export default function Messages() {
                 </div>
               </button>
             ))}
+            {!loading && visibleUsers.length === 0 && (
+              <p className="p-4 text-sm text-slate-500">No connected conversations yet.</p>
+            )}
           </div>
         </aside>
 

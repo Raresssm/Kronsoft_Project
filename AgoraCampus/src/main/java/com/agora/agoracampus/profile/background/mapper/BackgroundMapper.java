@@ -4,15 +4,10 @@ import com.agora.agoracampus.profile.background.dto.request.BackgroundCreateRequ
 import com.agora.agoracampus.profile.background.dto.response.BackgroundResponse;
 import com.agora.agoracampus.profile.background.dto.request.BackgroundUpdateRequest;
 import com.agora.agoracampus.profile.background.model.Background;
-import com.agora.agoracampus.profile.background.model.BackgroundType;
 import com.agora.agoracampus.profile.core.model.Profile;
-import com.agora.agoracampus.profile.individual.dto.response.IndividualProfileResponse;
-import com.agora.agoracampus.profile.individual.mapper.IndividualProfileMapper;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-
-import java.time.LocalDate;
 
 @Component
 @RequiredArgsConstructor
@@ -45,7 +40,7 @@ public class BackgroundMapper {
         background.setTitle(dto.title());
         background.setDescription(dto.description());
         background.setStartDate(dto.startDate());
-        background.setEndDate(dto.endDate());
+        background.setEndDate(Boolean.TRUE.equals(dto.currentlyOngoing()) ? null : dto.endDate());
         background.setCurrentlyOngoing(dto.currentlyOngoing());
         return background;
     }
@@ -55,7 +50,7 @@ public class BackgroundMapper {
         if (dto.title() != null) background.setTitle(dto.title());
         if (dto.description() != null) background.setDescription(dto.description());
         if (dto.startDate() != null) background.setStartDate(dto.startDate());
-        if (dto.endDate() != null) background.setEndDate(dto.endDate());
         if (dto.currentlyOngoing() != null) background.setCurrentlyOngoing(dto.currentlyOngoing());
+        background.setEndDate(Boolean.TRUE.equals(dto.currentlyOngoing()) ? null : dto.endDate());
     }
 }

@@ -1,5 +1,8 @@
 package com.agora.agoracampus.messaging.service;
 
+import com.agora.agoracampus.connection.model.Connection;
+import com.agora.agoracampus.connection.model.ConnectionStatus;
+import com.agora.agoracampus.connection.repository.ConnectionRepository;
 import com.agora.agoracampus.exception.BadRequestException;
 import com.agora.agoracampus.messaging.dto.request.CreateMessageRequest;
 import com.agora.agoracampus.messaging.mapper.MessageMapper;
@@ -44,6 +47,9 @@ class MessageServiceTest {
     @Mock
     private ProfileRepository profileRepository;
 
+    @Mock
+    private ConnectionRepository connectionRepository;
+
     private final MessageMapper messageMapper = new MessageMapper();
 
     @AfterEach
@@ -59,6 +65,7 @@ class MessageServiceTest {
 
         when(appUserRepository.existsById(1L)).thenReturn(true);
         when(profileRepository.findByAppUser_Id(1L)).thenReturn(Optional.of(profile(sender, ProfileType.INDIVIDUAL)));
+        when(connectionRepository.findBetweenUsers(1L, 2L)).thenReturn(Optional.of(connection(sender, receiver, ConnectionStatus.ACCEPTED)));
         when(appUserRepository.findById(1L)).thenReturn(Optional.of(sender));
         when(appUserRepository.findById(2L)).thenReturn(Optional.of(receiver));
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -79,6 +86,7 @@ class MessageServiceTest {
 
         when(appUserRepository.existsById(1L)).thenReturn(true);
         when(profileRepository.findByAppUser_Id(1L)).thenReturn(Optional.of(profile(sender, ProfileType.ORGANIZATION)));
+        when(connectionRepository.findBetweenUsers(1L, 2L)).thenReturn(Optional.of(connection(sender, receiver, ConnectionStatus.ACCEPTED)));
         when(appUserRepository.findById(1L)).thenReturn(Optional.of(sender));
         when(appUserRepository.findById(2L)).thenReturn(Optional.of(receiver));
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -122,12 +130,27 @@ class MessageServiceTest {
         authenticateAsAdmin();
 
         when(appUserRepository.existsById(99L)).thenReturn(true);
+        when(connectionRepository.findBetweenUsers(99L, 2L)).thenReturn(Optional.of(connection(sender, receiver, ConnectionStatus.ACCEPTED)));
         when(appUserRepository.findById(99L)).thenReturn(Optional.of(sender));
         when(appUserRepository.findById(2L)).thenReturn(Optional.of(receiver));
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         assertDoesNotThrow(() -> service.send(99L, new CreateMessageRequest(99L, 2L, "hello")));
         verify(messageRepository).save(any(Message.class));
+    }
+
+    @Test
+    void userCannotSendMessageWithoutAcceptedConnection() {
+        MessageService service = service();
+        AppUser sender = user(1L);
+        AppUser receiver = user(2L);
+
+        when(appUserRepository.existsById(1L)).thenReturn(true);
+        when(profileRepository.findByAppUser_Id(1L)).thenReturn(Optional.of(profile(sender, ProfileType.INDIVIDUAL)));
+        when(connectionRepository.findBetweenUsers(1L, 2L)).thenReturn(Optional.of(connection(sender, receiver, ConnectionStatus.PENDING)));
+
+        assertThrows(BadRequestException.class, () -> service.send(1L, new CreateMessageRequest(1L, 2L, "hello")));
+        verify(messageRepository, never()).save(any(Message.class));
     }
 
     @Test
@@ -222,7 +245,7 @@ class MessageServiceTest {
     }
 
     private MessageService service() {
-        return new MessageService(messageRepository, appUserRepository, profileRepository, messageMapper);
+        return new MessageService(messageRepository, appUserRepository, profileRepository, connectionRepository, messageMapper);
     }
 
     private AppUser user(Long id) {
@@ -239,6 +262,14 @@ class MessageServiceTest {
         profile.setAppUser(user);
         profile.setProfileType(profileType);
         return profile;
+    }
+
+    private Connection connection(AppUser requester, AppUser receiver, ConnectionStatus status) {
+        return Connection.builder()
+                .requester(requester)
+                .receiver(receiver)
+                .status(status)
+                .build();
     }
 
     private void authenticateAsAdmin() {

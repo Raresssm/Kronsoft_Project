@@ -8,7 +8,6 @@ import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.profile.background.mapper.BackgroundMapper;
 import com.agora.agoracampus.profile.background.model.Background;
 import com.agora.agoracampus.profile.core.model.ProfileActorRole;
-import com.agora.agoracampus.profile.individual.dto.response.IndividualProfileResponse;
 import com.agora.agoracampus.profile.individual.model.IndividualProfile;
 import com.agora.agoracampus.profile.background.repository.BackgroundRepository;
 import com.agora.agoracampus.profile.individual.repository.IndividualProfileRepository;
@@ -22,9 +21,9 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
 
 
@@ -83,6 +82,7 @@ import java.util.stream.Collectors;
                     "Only admins or the profile owner can add backgrounds."
             );
 
+            validateDateRange(dto.startDate(), dto.endDate(), dto.currentlyOngoing());
             Background background = backgroundMapper.toEntity(dto, individualProfile);
             return backgroundMapper.toResponse(backgroundRepository.save(background));
         }
@@ -108,6 +108,7 @@ import java.util.stream.Collectors;
                     "Only admins or the profile owner can update backgrounds."
             );
 
+            validateDateRange(dto.startDate(), dto.endDate(), dto.currentlyOngoing());
             backgroundMapper.updateEntity(existing, dto);
             return backgroundMapper.toResponse(backgroundRepository.save(existing));
         }
@@ -165,6 +166,15 @@ import java.util.stream.Collectors;
         ) {
             if (actorRole != ProfileActorRole.ADMIN && !actingUserId.equals(ownerId)) {
                 throw new BadRequestException(message);
+            }
+        }
+
+        private void validateDateRange(LocalDate startDate, LocalDate endDate, Boolean currentlyOngoing) {
+            if (Boolean.TRUE.equals(currentlyOngoing)) {
+                return;
+            }
+            if (startDate != null && endDate != null && endDate.isBefore(startDate)) {
+                throw new BadRequestException("End date cannot be earlier than start date.");
             }
         }
 

@@ -168,7 +168,19 @@ export default function ProfilePage() {
     field: Field,
     value: BackgroundForm[Field],
   ) => {
-    setBackgroundForm((current) => ({ ...current, [field]: value }));
+    setBackgroundForm((current) => {
+      const next = { ...current, [field]: value };
+
+      if (field === "startDate" && next.endDate && value && next.endDate < String(value)) {
+        next.endDate = "";
+      }
+
+      if (field === "currentlyOngoing" && value === true) {
+        next.endDate = "";
+      }
+
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -264,6 +276,11 @@ export default function ProfilePage() {
 
     if (!backgroundForm.title.trim() || !backgroundForm.startDate) {
       setError("Background title and start date are required.");
+      return;
+    }
+
+    if (!backgroundForm.currentlyOngoing && backgroundForm.endDate && backgroundForm.endDate < backgroundForm.startDate) {
+      setError("End date cannot be earlier than start date.");
       return;
     }
 
@@ -519,13 +536,20 @@ export default function ProfilePage() {
                         </select>
                       </label>
                       <TextField label="Title" value={backgroundForm.title} onChange={(value) => updateBackgroundField("title", value)} />
-                      <TextField label="Start date" type="date" value={backgroundForm.startDate} onChange={(value) => updateBackgroundField("startDate", value)} />
+                      <TextField
+                        label="Start date"
+                        type="date"
+                        value={backgroundForm.startDate}
+                        onChange={(value) => updateBackgroundField("startDate", value)}
+                        max={!backgroundForm.currentlyOngoing && backgroundForm.endDate ? backgroundForm.endDate : undefined}
+                      />
                       <TextField
                         label="End date"
                         type="date"
                         value={backgroundForm.endDate}
                         onChange={(value) => updateBackgroundField("endDate", value)}
                         disabled={backgroundForm.currentlyOngoing}
+                        min={backgroundForm.startDate || undefined}
                       />
                       <label className="flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
                         <input
@@ -738,6 +762,8 @@ function TextField({
   placeholder,
   type = "text",
   disabled = false,
+  min,
+  max,
 }: {
   label: string;
   value: string;
@@ -745,6 +771,8 @@ function TextField({
   placeholder?: string;
   type?: string;
   disabled?: boolean;
+  min?: string;
+  max?: string;
 }) {
   return (
     <label className="block">
@@ -755,6 +783,8 @@ function TextField({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         disabled={disabled}
+        min={min}
+        max={max}
         className="mt-1 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#143b5d] focus:ring-2 focus:ring-[#143b5d]/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
       />
     </label>

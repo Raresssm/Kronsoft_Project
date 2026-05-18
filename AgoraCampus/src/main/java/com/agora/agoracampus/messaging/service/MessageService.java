@@ -1,5 +1,7 @@
 package com.agora.agoracampus.messaging.service;
 
+import com.agora.agoracampus.connection.model.ConnectionStatus;
+import com.agora.agoracampus.connection.repository.ConnectionRepository;
 import com.agora.agoracampus.exception.BadRequestException;
 import com.agora.agoracampus.exception.NotFoundException;
 import com.agora.agoracampus.messaging.dto.request.CreateMessageRequest;
@@ -32,6 +34,7 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final AppUserRepository appUserRepository;
     private final ProfileRepository profileRepository;
+    private final ConnectionRepository connectionRepository;
     private final MessageMapper messageMapper;
 
     public List<MessageResponse> getConversation(Long userIdA, Long userIdB, Long actingUserId) {
@@ -45,6 +48,9 @@ public class MessageService {
                 userIdB,
                 "Only admins or conversation participants can view this conversation."
         );
+        if (actor.role() != MessageActorRole.ADMIN) {
+            requireAcceptedConnection(userIdA, userIdB);
+        }
         return messageRepository.findConversationBetween(userIdA, userIdB).stream()
                 .map(messageMapper::toResponse)
                 .toList();
@@ -86,6 +92,7 @@ public class MessageService {
         if (!actingUserId.equals(request.senderUserId())) {
             throw new BadRequestException("The acting user must be the sender.");
         }
+        requireAcceptedConnection(request.senderUserId(), request.receiverUserId());
 
         Message message = Message.builder()
                 .sender(appUserRepository.findById(request.senderUserId()).orElseThrow(() -> userNotFound(request.senderUserId())))
@@ -120,6 +127,15 @@ public class MessageService {
 
     private NotFoundException userNotFound(Long id) {
         return new NotFoundException("User " + id + " was not found.");
+    }
+
+    private void requireAcceptedConnection(Long userIdA, Long userIdB) {
+        boolean connected = connectionRepository.findBetweenUsers(userIdA, userIdB)
+                .filter(connection -> connection.getStatus() == ConnectionStatus.ACCEPTED)
+                .isPresent();
+        if (!connected) {
+            throw new BadRequestException("Users must be connected before they can message each other.");
+        }
     }
 
     private MessageActor resolveActor(Long actingUserId) {
