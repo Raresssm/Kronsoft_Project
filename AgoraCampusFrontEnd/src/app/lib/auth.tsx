@@ -157,14 +157,8 @@ function readStoredAccountType() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [initialized] = useState(true);
-  const [session, setSession] = useState<AuthSession | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    return readStoredSession();
-  });
+  const [initialized, setInitialized] = useState(false);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(null);
   const [error, setError] = useState("");
   const appUserProvisionPromiseRef = useRef<Promise<AppUser> | null>(null);
@@ -174,6 +168,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setCurrentSession = useCallback((nextSession: AuthSession | null) => {
     setSession(nextSession);
     storeSession(nextSession);
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setSession(readStoredSession());
+      setInitialized(true);
+    });
   }, []);
 
   const refreshToken = useCallback(async () => {
@@ -386,8 +387,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void Promise.resolve()
       .then(() => ensureAppUser())
-      .catch((authError: unknown) => {
-        setError(authError instanceof Error ? authError.message : "Authentication failed.");
+      .catch(() => {
+        setError("");
         setCurrentSession(null);
       });
   }, [appUser, ensureAppUser, initialized, session, setCurrentSession]);
