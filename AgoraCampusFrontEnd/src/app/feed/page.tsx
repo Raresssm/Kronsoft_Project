@@ -6,21 +6,16 @@ import { AppShell } from "../components/AppShell";
 import { CommentResponse, formatRelativeTime, PostResponse, ReactionResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 
-type FeedFilter = "All" | "Posts";
-
 type FeedItem = {
   post: PostResponse;
   comments: CommentResponse[];
   reactions: ReactionResponse[];
 };
 
-const filters: FeedFilter[] = ["All", "Posts"];
-
 export default function Feed() {
   const { appUser, apiFetch } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [users, setUsers] = useState<Record<number, string>>({});
-  const [activeFilter, setActiveFilter] = useState<FeedFilter>("All");
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [openCommentsPostId, setOpenCommentsPostId] = useState<number | null>(null);
@@ -198,20 +193,8 @@ export default function Feed() {
             </div>
           </form>
 
-          <div className="flex flex-wrap items-center gap-2 rounded-3xl border border-white/20 bg-white/80 p-3 shadow-2xl backdrop-blur-xl">
-            {filters.map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => setActiveFilter(filter)}
-                className={[
-                  "rounded-full px-4 py-2 text-sm font-semibold transition",
-                  activeFilter === filter ? "bg-[#143b5d] text-white" : "bg-white text-[#143b5d] hover:bg-[#143b5d]/10",
-                ].join(" ")}
-              >
-                {filter}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3 rounded-3xl border border-white/20 bg-white/80 p-3 shadow-2xl backdrop-blur-xl">
+            <span className="rounded-full bg-[#143b5d] px-4 py-2 text-sm font-semibold text-white">Posts</span>
             <span className="ml-auto text-xs font-medium text-slate-600">
               {loading ? "Loading..." : `${visibleItems.length} items visible`}
             </span>

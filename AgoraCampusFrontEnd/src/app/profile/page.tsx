@@ -419,14 +419,16 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <section className="rounded-[1.75rem] border border-white/20 bg-white/85 p-4 shadow-2xl backdrop-blur-xl">
-            <h2 className="text-sm font-semibold text-[#143b5d]">Snapshot</h2>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <Snapshot label="Account" value={isIndividual ? "1" : "Org"} />
-              <Snapshot label={isIndividual ? "Background" : "Specialties"} value={isIndividual ? backgrounds.length : specialties.length} />
-              <Snapshot label="Contact" value={[profile?.website, profile?.location].filter(Boolean).length} />
-            </div>
-          </section>
+          {isIndividual && (
+            <section className="rounded-[1.75rem] border border-white/20 bg-white/85 p-4 shadow-2xl backdrop-blur-xl">
+              <h2 className="text-sm font-semibold text-[#143b5d]">Snapshot</h2>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                <Snapshot label="Account" value="1" />
+                <Snapshot label="Background" value={backgrounds.length} />
+                <Snapshot label="Contact" value={[profile?.website, profile?.location].filter(Boolean).length} />
+              </div>
+            </section>
+          )}
         </aside>
 
         <section className="min-w-0 rounded-[2rem] border border-white/20 bg-white/90 shadow-2xl backdrop-blur-xl">

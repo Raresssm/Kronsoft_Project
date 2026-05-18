@@ -37,6 +37,7 @@ public class OrganizationProfileService {
 
 
 
+    @Transactional
     public OrganizationProfileResponse getByProfileId(Long profileId, Long actingUserId) {
         resolveActorRole(actingUserId);
         OrganizationProfile org = organizationProfileRepository
@@ -45,6 +46,7 @@ public class OrganizationProfileService {
         return organizationProfileMapper.toResponse(org);
     }
 
+    @Transactional
     public List<OrganizationProfileResponse> searchByName(String name) {
         List<OrganizationProfile> existing = organizationProfileRepository
                 .findByOrganizationNameContainingIgnoreCase(name);
@@ -54,6 +56,7 @@ public class OrganizationProfileService {
                 .toList();
     }
 
+    @Transactional
     public List<OrganizationProfileResponse> searchByLocation(String location) {
         List<OrganizationProfile> existing = organizationProfileRepository
                 .findByLocationContainingIgnoreCase(location);
@@ -64,6 +67,7 @@ public class OrganizationProfileService {
     }
 
 
+    @Transactional
     public List<OrganizationProfileResponse> searchByIndustry(String industry) {
         List<OrganizationProfile> existing = organizationProfileRepository
                 .findByIndustryContainingIgnoreCase(industry);
@@ -73,6 +77,7 @@ public class OrganizationProfileService {
                 .toList();
     }
 
+    @Transactional
     public List<OrganizationProfileResponse> searchBySpecialties(String specialties) {
         List<OrganizationProfile> existing = organizationProfileRepository
                 .findBySpecialtiesContainingIgnoreCase(specialties);
