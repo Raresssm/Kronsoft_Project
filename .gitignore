@@ -1,2 +1,48 @@
+# Local environment (passwords, ports) - copy from .env.example
+.env
+.env.*
+!.env.example
+
+# IDE
 .idea/
 *.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# Node / Next.js
+node_modules/
+.next/
+AgoraCampusFrontEnd/node_modules/
+AgoraCampusFrontEnd/.next/
+
+# Spring Boot
+HELP.md
+application-local.yaml
+application-local.yml
+**/application-*-local.yaml
+
+# Logs
+logs/
+*.log
+
+# Test / DB artifacts
+*.h2.db
+*.trace.db
+
+# Local DB diagram export (not part of the app)
+db_diagram/
